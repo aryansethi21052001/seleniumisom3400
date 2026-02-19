@@ -521,54 +521,6 @@ def show_instructions():
         
         ---
         
-        ### Tips & Best Practices
-        
-        **For Better Search Results:**
-        - Start with broader filters, then narrow down
-        - Use standard district names (e.g., "Wan Chai" not "Wanchai")
-        - Check spelling - the search is case-insensitive but needs correct spelling
-        
-        **For Faster Extraction:**
-        - Fewer properties = faster extraction
-        - Use specific filters to reduce result count
-        - The scraper processes 10 properties per page
-        
-        **Common Issues:**
-        - **"No properties found"**: Try removing some filters
-        - **Slow extraction**: Large searches (1000+ properties) take time
-        - **Connection errors**: The website might be slow; try again
-        - **Missing data**: Some listings may have incomplete information
-        
-        ---
-        
-        ### Frequently Asked Questions
-        
-        **Q: How many properties can I scrape at once?**
-        A: There's no limit! The tool will scrape all properties matching your criteria.
-        
-        **Q: Is the data accurate?**
-        A: The data comes directly from SquareFoot.com.hk. The scraper extracts exactly what's displayed on the website.
-        
-        **Q: Can I scrape for sale properties instead of rent?**
-        A: Currently, this tool is configured for rental properties only.
-        
-        **Q: Why do some fields show "N/A"?**
-        A: Some listings may not include all information. The scraper marks missing data as "N/A".
-        
-        **Q: What format is the downloaded file?**
-        A: The file is in CSV format, which can be opened in Excel, Google Sheets, or any spreadsheet software.
-        
-        ---
-        
-        ### Pro Tips
-        
-        - **Save multiple searches**: Download separate CSV files for different districts or filter combinations
-        - **Combine data**: You can merge multiple CSV files in Excel for comprehensive analysis
-        - **Market analysis**: Use the statistics panel to quickly see average prices in different areas
-        - **Track changes**: Run the same search monthly to track rental price trends
-        
-        ---
-        
         ### Need Help?
         
         If you encounter any issues:
