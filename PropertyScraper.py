@@ -539,9 +539,6 @@ def main():
     
     st.title("Hong Kong Rental Property Scraper")
 
-    if not st.session_state.get('search_performed') and not st.session_state.get('properties_data'):
-        show_instructions()
-
     # Initialize session state
     if 'scraper' not in st.session_state:
         st.session_state.scraper = None
@@ -557,6 +554,12 @@ def main():
         st.session_state.property_count = 0
     if 'is_extracting' not in st.session_state:
         st.session_state.is_extracting = False
+    if 'instructions_shown' not in st.session_state:
+        st.session_state.instructions_shown = False
+
+    if not st.session_state.instructions_shown:
+        show_instructions()
+        st.session_state.instructions_shown = True
     
     # Sidebar for filters
     with st.sidebar:
