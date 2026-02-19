@@ -660,7 +660,7 @@ def show_property_search():
         not st.session_state.get('is_extracting', False)):
         
         # Create the extract button
-        extract_button = st.button("Extract Property Data", key="extract_button", type="primary", use_container_width=True)
+        extract_button = st.button("Extract Property Data", key="extract_button", use_container_width=True)
         
         if extract_button:
             # Set extracting flag immediately and rerun to hide button
@@ -762,9 +762,9 @@ def show_property_search():
         st.info("No property data could be extracted.")
 
 def main():
-    st.set_page_config(page_title="Hong Kong Rental Property Scraper", layout="wide")
+    st.set_page_config(page_title="Hong Kong Rental Property Scraper")
     
-    st.title("Hong Kong Rental Property Scraper")
+    st.title("Hong Kong Rental Property Scraper", text_alignment="center")
     
     # Create tabs
     tab1, tab2 = st.tabs(["Home", "Property Search"])
