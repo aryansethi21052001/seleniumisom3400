@@ -2,6 +2,3 @@ selenium
 streamlit
 webdriver-manager
 pandas
-csv
-os
-time
