@@ -555,6 +555,8 @@ def main():
         st.session_state.current_district = ""
     if 'property_count' not in st.session_state:
         st.session_state.property_count = 0
+    if 'is_extracting' not in st.session_state:
+        st.session_state.is_extracting = False
     
     # Sidebar for filters
     with st.sidebar:
@@ -646,17 +648,34 @@ def main():
                     st.session_state.scraper = None
     
     # Show extract button if search was successful and data not yet extracted
-    if st.session_state.search_performed and not st.session_state.extract_clicked and st.session_state.property_count > 0:
-        if st.button("Extract Property Data", key="extract_button"):
-            with st.spinner("Extracting property data... This may take a few minutes..."):
-                if st.session_state.scraper:
-                    st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(
-                        st.session_state.current_district, 
-                        st.session_state.property_count
-                    )
-                    st.session_state.extract_clicked = True
-                else:
-                    st.error("Scraper connection lost. Please search again.")
+    if (st.session_state.search_performed and 
+        not st.session_state.extract_clicked and 
+        st.session_state.property_count > 0 and
+        not st.session_state.get('is_extracting', False)):
+        
+        # Create the extract button
+        extract_button = st.button("Extract Property Data", key="extract_button")
+        
+        if extract_button:
+            # Set extracting flag immediately and rerun to hide button
+            st.session_state.is_extracting = True
+            st.rerun()
+    
+    # Handle extraction process
+    if st.session_state.get('is_extracting', False):
+        with st.spinner("Extracting property data... This may take a few minutes..."):
+            if st.session_state.scraper:
+                st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(
+                    st.session_state.current_district, 
+                    st.session_state.property_count
+                )
+                st.session_state.extract_clicked = True
+                st.session_state.is_extracting = False  # Clear extracting flag
+                st.rerun()  # Rerun to show results
+            else:
+                st.error("Scraper connection lost. Please search again.")
+                st.session_state.is_extracting = False
+                st.rerun()
     
     # Display results
     if st.session_state.get('properties_data') is not None:
