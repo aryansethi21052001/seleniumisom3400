@@ -561,7 +561,7 @@ def main():
             with st.spinner("Extracting property data..."):
                 st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(st.session_state.current_district)
                 st.session_state.extract_clicked = True
-                st.rerun()
+                # st.rerun()
     
     # Display results
     if st.session_state.get('properties_data') is not None and len(st.session_state.properties_data) > 0:
