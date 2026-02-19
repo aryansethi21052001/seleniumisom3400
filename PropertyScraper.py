@@ -20,9 +20,13 @@ class PropertyScraper:
             chrome_options.add_argument("--headless=new")
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.binary_location = "/usr/bin/chromium"
-            self.service = Service("/usr/bin/chromedriver")
-            self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
+            
+            # More flexible Chrome binary location
+            chrome_options.binary_location = "/usr/bin/chromium"  # Keep as is for your environment
+            
+            # Use webdriver-manager to handle ChromeDriver
+            service = Service(ChromeDriverManager().install())
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
             self.wait = WebDriverWait(self.driver, 10)
             self.url = "https://www.squarefoot.com.hk/en/rent" 
             self.driver.get(self.url)
@@ -127,6 +131,7 @@ class PropertyScraper:
         
         try:
             total_pages = self.get_total_pages()
+            st.info(f"Total pages to scrape: {total_pages}")
             
             progress_bar = st.progress(0)
             status_text = st.empty()
@@ -135,6 +140,7 @@ class PropertyScraper:
                 status_text.text(f"Extracting page {current_page}/{total_pages}...")
                 
                 page_properties = self.extract_property_data(district)
+                st.info(f"Found {len(page_properties)} properties on page {current_page}")
                 all_properties_data.extend(page_properties)
                 
                 # Update progress
@@ -145,6 +151,7 @@ class PropertyScraper:
                     break
                 
                 if not self.go_to_next_page():
+                    st.warning(f"Could not go to page {current_page + 1}")
                     break
                 
                 current_page += 1
@@ -525,8 +532,10 @@ def main():
     # Main content area
     if search_button and district:
         with st.spinner("Initializing scraper..."):
+            # Close existing scraper if any
             if st.session_state.scraper:
                 st.session_state.scraper.close()
+                st.session_state.scraper = None
             
             try:
                 st.session_state.scraper = PropertyScraper()
@@ -547,6 +556,8 @@ def main():
                 if property_count > 0:
                     st.success(f"Found {property_count:,} properties")
                     st.session_state.search_performed = True
+                    st.session_state.extract_clicked = False  # Reset extraction flag
+                    st.session_state.properties_data = None  # Clear previous data
                 else:
                     st.warning("No properties found in this district")
                     st.session_state.search_performed = False
@@ -554,112 +565,133 @@ def main():
             except Exception as e:
                 st.error(f"Error during search: {e}")
                 st.session_state.search_performed = False
+                if st.session_state.scraper:
+                    st.session_state.scraper.close()
+                    st.session_state.scraper = None
     
     # Show extract button if search was successful and data not yet extracted
     if st.session_state.search_performed and not st.session_state.extract_clicked and st.session_state.property_count > 0:
         if st.button("Extract Property Data", key="extract_button"):
-            with st.spinner("Extracting property data..."):
-                st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(st.session_state.current_district)
-                st.session_state.extract_clicked = True
-                # st.rerun()
+            with st.spinner("Extracting property data... This may take a few minutes..."):
+                # Make sure scraper is still alive
+                if st.session_state.scraper:
+                    st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(st.session_state.current_district)
+                    st.session_state.extract_clicked = True
+                    # Don't use st.rerun() here - let the display update naturally
+                else:
+                    st.error("Scraper connection lost. Please search again.")
     
     # Display results
-    if st.session_state.get('properties_data') is not None and len(st.session_state.properties_data) > 0:
-        st.header("Search Results")
-        
-        # Convert to DataFrame for display
-        df = pd.DataFrame(st.session_state.properties_data)
-        
-        # Display dataframe
-        st.dataframe(df, use_container_width=True)
-        
-        # Download buttons
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Save to CSV button
-            if st.button("Save to CSV", key="save_csv_button"):
-                filename = f"property_data_{st.session_state.current_district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
-                saved_file = st.session_state.scraper.save_to_csv(st.session_state.properties_data, filename)
-                if saved_file:
-                    st.success(f"Data saved to {saved_file}")
-                    
-                    # Provide download link
-                    with open(saved_file, 'rb') as f:
-                        st.download_button(
-                            label="Download CSV",
-                            data=f,
-                            file_name=saved_file,
-                            mime='text/csv',
-                            key="download_csv_button"
-                        )
-        
-        with col2:
-            # Preview existing CSV files
-            if st.session_state.scraper:
-                csv_files = st.session_state.scraper.list_csv_files()
-                if csv_files:
-                    with st.expander("View Existing CSV Files"):
-                        for file in csv_files:
-                            try:
-                                size = os.path.getsize(file)
-                                with open(file, 'r', encoding='utf-8') as f:
-                                    row_count = sum(1 for _ in f) - 1
-                                st.text(f"{file} ({row_count} properties, {size:,} bytes)")
-                            except:
-                                st.text(f"{file} ({size:,} bytes)")
-        
-        # Display statistics
-        st.header("Statistics")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Total Properties", len(st.session_state.properties_data))
-        
-        # Calculate average price (excluding 'N/A' values)
-        prices = []
-        for p in st.session_state.properties_data:
-            price_str = p.get('Monthly Rental Price (in HKD)', 'N/A')
-            if price_str != 'N/A':
-                try:
-                    # Remove commas and convert to int
-                    price = int(price_str.replace(',', ''))
-                    prices.append(price)
-                except:
-                    pass
-        
-        with col2:
-            if prices:
-                avg_price = sum(prices) // len(prices)
-                st.metric("Average Price (HKD)", f"{avg_price:,}")
-            else:
-                st.metric("Average Price (HKD)", "N/A")
-        
-        # Calculate average area (excluding 'N/A' values)
-        areas = []
-        for p in st.session_state.properties_data:
-            area_str = p.get('Net Area (sqft)', 'N/A')
-            if area_str != 'N/A':
-                try:
-                    area = int(area_str)
-                    areas.append(area)
-                except:
-                    pass
-        
-        with col3:
-            if areas:
-                avg_area = sum(areas) // len(areas)
-                st.metric("Average Area (sqft)", f"{avg_area}")
-            else:
-                st.metric("Average Area (sqft)", "N/A")
+    if st.session_state.get('properties_data') is not None:
+        if len(st.session_state.properties_data) > 0:
+            st.header("Search Results")
+            
+            # Convert to DataFrame for display
+            df = pd.DataFrame(st.session_state.properties_data)
+            
+            # Display dataframe
+            st.dataframe(df, use_container_width=True)
+            
+            # Download buttons
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Save to CSV button
+                if st.button("Save to CSV", key="save_csv_button"):
+                    if st.session_state.scraper:
+                        filename = f"property_data_{st.session_state.current_district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                        saved_file = st.session_state.scraper.save_to_csv(st.session_state.properties_data, filename)
+                        if saved_file:
+                            st.success(f"Data saved to {saved_file}")
+                            
+                            # Provide download link
+                            with open(saved_file, 'rb') as f:
+                                st.download_button(
+                                    label="Download CSV",
+                                    data=f,
+                                    file_name=saved_file,
+                                    mime='text/csv',
+                                    key="download_csv_button"
+                                )
+                    else:
+                        st.error("Scraper not available. Please search again.")
+            
+            with col2:
+                # Preview existing CSV files
+                if st.session_state.scraper:
+                    csv_files = st.session_state.scraper.list_csv_files()
+                    if csv_files:
+                        with st.expander("View Existing CSV Files"):
+                            for file in csv_files:
+                                try:
+                                    size = os.path.getsize(file)
+                                    with open(file, 'r', encoding='utf-8') as f:
+                                        row_count = sum(1 for _ in f) - 1
+                                    st.text(f"{file} ({row_count} properties, {size:,} bytes)")
+                                except:
+                                    st.text(f"{file}")
+            
+            # Display statistics
+            st.header("Statistics")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Total Properties", len(st.session_state.properties_data))
+            
+            # Calculate average price (excluding 'N/A' values)
+            prices = []
+            for p in st.session_state.properties_data:
+                price_str = p.get('Monthly Rental Price (in HKD)', 'N/A')
+                if price_str != 'N/A':
+                    try:
+                        # Remove commas and convert to int
+                        price = int(price_str.replace(',', ''))
+                        prices.append(price)
+                    except:
+                        pass
+            
+            with col2:
+                if prices:
+                    avg_price = sum(prices) // len(prices)
+                    st.metric("Average Price (HKD)", f"{avg_price:,}")
+                else:
+                    st.metric("Average Price (HKD)", "N/A")
+            
+            # Calculate average area (excluding 'N/A' values)
+            areas = []
+            for p in st.session_state.properties_data:
+                area_str = p.get('Net Area (sqft)', 'N/A')
+                if area_str != 'N/A':
+                    try:
+                        area = int(area_str)
+                        areas.append(area)
+                    except:
+                        pass
+            
+            with col3:
+                if areas:
+                    avg_area = sum(areas) // len(areas)
+                    st.metric("Average Area (sqft)", f"{avg_area}")
+                else:
+                    st.metric("Average Area (sqft)", "N/A")
+        else:
+            st.info("No property data could be extracted. The search found properties but extraction failed.")
     
     # Show message if no data
-    elif st.session_state.search_performed and st.session_state.extract_clicked and (not st.session_state.properties_data or len(st.session_state.properties_data) == 0):
+    elif st.session_state.search_performed and st.session_state.extract_clicked:
         st.info("No property data could be extracted.")
     
-    # Cleanup on session end
-    if st.session_state.scraper:
+    # Cleanup on session end (this will run when the script is done)
+    # Note: We don't close immediately to keep the session alive
+
+# Register a cleanup function for when the session ends
+import atexit
+
+def cleanup():
+    if 'scraper' in st.session_state and st.session_state.scraper:
         st.session_state.scraper.close()
+
+atexit.register(cleanup)
 
 if __name__ == "__main__":
     main()
