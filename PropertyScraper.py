@@ -25,26 +25,14 @@ class PropertyScraper:
             chrome_options.add_argument("--headless=new")
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1920,1080")
-            chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            
-            # Use webdriver-manager to handle driver installation
-            service = Service(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            self.wait = WebDriverWait(self.driver, 20)  # Increased timeout
+            chrome_options.binary_location = "/usr/bin/chromium"
+            self.service = Service("/usr/bin/chromedriver")
+            self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
+            self.wait = WebDriverWait(self.driver, 10)
             self.url = "https://www.squarefoot.com.hk/en/rent" 
-            
-            logger.info("Navigating to URL")
             self.driver.get(self.url)
-            
-            # Wait for page to load completely
-            self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-            time.sleep(3)  # Additional wait for dynamic content
-            
         except Exception as e:
             st.error(f"Error setting up WebDriver: {e}")
-            logger.error(f"WebDriver setup error: {e}")
             raise
     
     def get_total_pages(self):
