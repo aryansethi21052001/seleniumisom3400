@@ -464,82 +464,87 @@ class PropertyScraper:
         if hasattr(self, 'driver'):
             self.driver.quit()
 
-def show_instructions():
-    with st.expander("Instructions", expanded=True):
-        st.markdown("""
-        ### Welcome to the Hong Kong Rental Property Scraper!
-        
-        This tool helps you search and extract rental property data *(retrieved from SquareFoot.com.hk)*. Follow the steps below to get started:
-        
-        ---
-        
-        ### Quick Start Guide
-        
-        #### Step 1: Apply Filters (Optional)
-        Use the sidebar to narrow down your search:
-        - **Property Type**: Select from All, Apartment, Carpark, Office, or Shop
-        - **Monthly Budget**: Choose your preferred rental price range
-        - **Saleable Area**: Filter by property size (not applicable for Carpark)
-        - **Number of Rooms**: Select bedroom requirements (not applicable for Carpark)
-        
-        #### Step 2: Enter District
-        - Type the Hong Kong district you want to search (e.g., "Central", "Causeway Bay", "Tsim Sha Tsui")
-        - Click the **"Search Properties"** button
-        
-        #### Step 3: Review Search Results
-        - The app will show you how many properties were found
-        - If no properties match your criteria, try broadening your filters
-        
-        #### Step 4: Extract Data
-        - Click **"Extract Property Data"** to start scraping
-        - A progress bar will show you:
-          - Total properties being scraped
-          - Real-time progress (X of Y properties)
-        - Extraction time varies based on the number of properties (typically 1-5 minutes)
-        
-        #### Step 5: Download Your Data
-        - Once extraction is complete, you'll see:
-          - A table with all property details
-          - Statistics showing totals and averages
-          - A **"Download CSV"** button
-        - Click the download button to save the data as a CSV file
-        
-        ---
-        
-        ### What Data Gets Extracted?
-        
-        For each property, the scraper collects:
-        
-        1. **District** - Your searched location
-        2. **Property Name** - Building/project name
-        3. **Street Address** - Full street address
-        4. **Monthly Rental Price** - In HKD
-        5. **Net Area** - Size in square feet
-        6. **Number of Bedrooms**
-        7. **Number of Bathrooms**
-        8. **Property URL** - Direct link to the listing
-        
-        ---
-        
-        ### Need Help?
-        
-        If you encounter any issues:
-        - Check your internet connection
-        - Verify the district name is correct
-        - Try refreshing the page and starting over
-        - Make sure you're not blocking the website with any browser extensions
-        
-        ---
-        
-        *Happy Property Hunting!*
-        """)
-
-def main():
-    st.set_page_config(page_title="Hong Kong Rental Property Scraper", layout="wide")
+def show_home_page():
+    """Display the home page with instructions"""
+    st.markdown("""
+    ## Welcome to the Hong Kong Rental Property Scraper! 🏠
     
-    st.title("Hong Kong Rental Property Scraper")
+    This tool helps you search and extract rental property data from SquareFoot.com.hk. 
+    Get started by navigating to the **Property Search** tab above.
+    
+    ---
+    
+    ### 📋 Quick Start Guide
+    
+    #### Step 1: Navigate to Property Search
+    Click on the **"Property Search"** tab at the top of the page.
+    
+    #### Step 2: Apply Filters (Optional)
+    Use the filters in the sidebar to narrow down your search:
+    - **Property Type**: Select from All, Apartment, Carpark, Office, or Shop
+    - **Monthly Budget**: Choose your preferred rental price range
+    - **Saleable Area**: Filter by property size
+    - **Number of Rooms**: Select bedroom requirements
+    
+    #### Step 3: Enter District
+    - Type the Hong Kong district you want to search (e.g., "Central", "Causeway Bay", "Tsim Sha Tsui")
+    - Click the **"Search Properties"** button
+    
+    #### Step 4: Review Search Results
+    - The app will show you how many properties were found
+    - If no properties match your criteria, try broadening your filters
+    
+    #### Step 5: Extract Data
+    - Click **"Extract Property Data"** to start scraping
+    - A progress bar will show real-time progress
+    - Extraction time varies based on the number of properties
+    
+    #### Step 6: Download Your Data
+    - Once extraction is complete, you'll see a table with all property details
+    - Click the **"Download CSV"** button to save the data
+    
+    ---
+    
+    ### 📊 What Data Gets Extracted?
+    
+    For each property, the scraper collects:
+    
+    1. **District** - Your searched location
+    2. **Property Name** - Building/project name
+    3. **Street Address** - Full street address
+    4. **Monthly Rental Price** - In HKD
+    5. **Net Area** - Size in square feet
+    6. **Number of Bedrooms**
+    7. **Number of Bathrooms**
+    8. **Property URL** - Direct link to the listing
+    
+    ---
+    
+    ### 💡 Tips
+    
+    - **Start broad**: Begin with fewer filters to see more options
+    - **Be specific**: Use exact district names for best results
+    - **Be patient**: Large searches (1000+ properties) may take a few minutes
+    - **Check spelling**: The search is case-insensitive but needs correct spelling
+    
+    ---
+    
+    ### ❓ Need Help?
+    
+    If you encounter any issues:
+    - Check your internet connection
+    - Verify the district name is correct
+    - Try refreshing the page and starting over
+    
+    ---
+    
+    *Happy Property Hunting!* 🏃‍♂️
+    """)
 
-    # Initialize session state
+def show_property_search():
+    """Display the property search interface"""
+    
+    # Initialize session state for this tab
     if 'scraper' not in st.session_state:
         st.session_state.scraper = None
     if 'properties_data' not in st.session_state:
@@ -554,12 +559,6 @@ def main():
         st.session_state.property_count = 0
     if 'is_extracting' not in st.session_state:
         st.session_state.is_extracting = False
-    if 'instructions_shown' not in st.session_state:
-        st.session_state.instructions_shown = False
-
-    if not st.session_state.instructions_shown:
-        show_instructions()
-        st.session_state.instructions_shown = True
     
     # Sidebar for filters
     with st.sidebar:
@@ -608,7 +607,7 @@ def main():
         district = st.text_input("District Name", key="district_input")
         
         # Search Button
-        search_button = st.button("Search Properties", type="primary", disabled=not district)
+        search_button = st.button("Search Properties", type="primary", disabled=not district, use_container_width=True)
     
     # Main content area
     if search_button and district:
@@ -657,7 +656,7 @@ def main():
         not st.session_state.get('is_extracting', False)):
         
         # Create the extract button
-        extract_button = st.button("Extract Property Data", key="extract_button")
+        extract_button = st.button("Extract Property Data", key="extract_button", type="primary", use_container_width=True)
         
         if extract_button:
             # Set extracting flag immediately and rerun to hide button
@@ -701,11 +700,12 @@ def main():
                     
                     # Single download button that directly downloads the CSV
                     st.download_button(
-                        label="Download CSV",
+                        label="📥 Download CSV",
                         data=csv_bytes,
                         file_name=filename,
                         mime='text/csv',
-                        key="download_csv_button"
+                        key="download_csv_button",
+                        use_container_width=True
                     )
             
             # Display statistics
@@ -756,18 +756,29 @@ def main():
     
     elif st.session_state.search_performed and st.session_state.extract_clicked:
         st.info("No property data could be extracted.")
+
+def main():
+    st.set_page_config(page_title="Hong Kong Rental Property Scraper", layout="wide")
     
-    # Cleanup on session end (this will run when the script is done)
-    # Note: We don't close immediately to keep the session alive
-
-# Register a cleanup function for when the session ends
-import atexit
-
-def cleanup():
-    if 'scraper' in st.session_state and st.session_state.scraper:
-        st.session_state.scraper.close()
-
-atexit.register(cleanup)
+    st.title("🏠 Hong Kong Rental Property Scraper")
+    
+    # Create tabs
+    tab1, tab2 = st.tabs(["🏠 Home", "🔍 Property Search"])
+    
+    with tab1:
+        show_home_page()
+    
+    with tab2:
+        show_property_search()
+    
+    # Cleanup on session end
+    import atexit
+    
+    def cleanup():
+        if 'scraper' in st.session_state and st.session_state.scraper:
+            st.session_state.scraper.close()
+    
+    atexit.register(cleanup)
 
 if __name__ == "__main__":
     main()
