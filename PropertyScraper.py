@@ -806,7 +806,7 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         st.error(f"Application error: {e}")
-    finally:
-        # Clean up WebDriver when the app is closed
-        if 'scraper' in st.session_state and hasattr(st.session_state.scraper, 'close_driver'):
-            st.session_state.scraper.close_driver()
+    # finally:
+    #     # Clean up WebDriver when the app is closed
+    #     if 'scraper' in st.session_state and hasattr(st.session_state.scraper, 'close_driver'):
+    #         st.session_state.scraper.close_driver()
