@@ -467,20 +467,20 @@ class PropertyScraper:
 def show_home_page():
     """Display the home page with instructions"""
     st.markdown("""
-    ## Welcome to the Hong Kong Rental Property Scraper! 🏠
+    ## Welcome to the Hong Kong Rental Property Scraper!
     
     This tool helps you search and extract rental property data from SquareFoot.com.hk. 
     Get started by navigating to the **Property Search** tab above.
     
     ---
     
-    ### 📋 Quick Start Guide
+    ### Quick Start Guide
     
     #### Step 1: Navigate to Property Search
     Click on the **"Property Search"** tab at the top of the page.
     
     #### Step 2: Apply Filters (Optional)
-    Use the filters in the sidebar to narrow down your search:
+    Use the filters in the search form to narrow down your search:
     - **Property Type**: Select from All, Apartment, Carpark, Office, or Shop
     - **Monthly Budget**: Choose your preferred rental price range
     - **Saleable Area**: Filter by property size
@@ -505,7 +505,7 @@ def show_home_page():
     
     ---
     
-    ### 📊 What Data Gets Extracted?
+    ### What Data Gets Extracted?
     
     For each property, the scraper collects:
     
@@ -520,7 +520,7 @@ def show_home_page():
     
     ---
     
-    ### 💡 Tips
+    ### Tips
     
     - **Start broad**: Begin with fewer filters to see more options
     - **Be specific**: Use exact district names for best results
@@ -529,7 +529,7 @@ def show_home_page():
     
     ---
     
-    ### ❓ Need Help?
+    ### Need Help?
     
     If you encounter any issues:
     - Check your internet connection
@@ -538,7 +538,7 @@ def show_home_page():
     
     ---
     
-    *Happy Property Hunting!* 🏃‍♂️
+    *Happy Property Hunting!*
     """)
 
 def show_property_search():
@@ -560,56 +560,60 @@ def show_property_search():
     if 'is_extracting' not in st.session_state:
         st.session_state.is_extracting = False
     
-    # Sidebar for filters
-    with st.sidebar:
-        st.header("Search Filters")
+    # Create a form for search filters
+    with st.form("search_form"):
+        st.subheader("Search Filters")
         
-        # Property Type Selection
-        property_type = st.selectbox(
-            "Property Type",
-            ["All", "Apartment", "Carpark", "Office", "Shop"],
-            key="property_type"
-        )
+        col1, col2 = st.columns(2)
         
-        # Budget Selection
-        budget = st.selectbox(
-            "Monthly Budget (HKD)",
-            ["No preference", "Below 10,000", "10,000 - 20,000", 
-             "20,000 - 40,000", "40,000 - 60,000", "60,000 - 80,000", 
-             "Above 80,000"],
-            key="budget"
-        )
-        
-        # Area Selection (only if not Carpark)
-        if property_type != "Carpark":
-            area = st.selectbox(
-                "Saleable Area (sqft)",
-                ["No preference", "Below 300", "300 - 500", "500 - 1000", 
-                 "1000 - 2000", "Above 2000"],
-                key="area"
+        with col1:
+            # Property Type Selection
+            property_type = st.selectbox(
+                "Property Type",
+                ["All", "Apartment", "Carpark", "Office", "Shop"],
+                key="property_type"
             )
-        else:
-            area = "No preference"
-            st.info("Area filter not applicable for Carpark")
-        
-        # Room Selection (only if not Carpark)
-        if property_type != "Carpark":
-            rooms = st.selectbox(
-                "Number of Rooms",
-                ["No preference", "Studio", "1", "2", "3", "4", "5+"],
-                key="rooms"
+            
+            # Budget Selection
+            budget = st.selectbox(
+                "Monthly Budget (HKD)",
+                ["No preference", "Below 10,000", "10,000 - 20,000", 
+                 "20,000 - 40,000", "40,000 - 60,000", "60,000 - 80,000", 
+                 "Above 80,000"],
+                key="budget"
             )
-        else:
-            rooms = "No preference"
-            st.info("Room filter not applicable for Carpark")
+        
+        with col2:
+            # Area Selection (only if not Carpark)
+            if property_type != "Carpark":
+                area = st.selectbox(
+                    "Saleable Area (sqft)",
+                    ["No preference", "Below 300", "300 - 500", "500 - 1000", 
+                     "1000 - 2000", "Above 2000"],
+                    key="area"
+                )
+            else:
+                area = "No preference"
+                st.info("Area filter not applicable for Carpark")
+            
+            # Room Selection (only if not Carpark)
+            if property_type != "Carpark":
+                rooms = st.selectbox(
+                    "Number of Rooms",
+                    ["No preference", "Studio", "1", "2", "3", "4", "5+"],
+                    key="rooms"
+                )
+            else:
+                rooms = "No preference"
+                st.info("Room filter not applicable for Carpark")
         
         # District Input
         district = st.text_input("District Name", key="district_input")
         
         # Search Button
-        search_button = st.button("Search Properties", type="primary", disabled=not district, use_container_width=True)
+        search_button = st.form_submit_button("Search Properties", type="primary", use_container_width=True)
     
-    # Main content area
+    # Main content area (outside the form)
     if search_button and district:
         with st.spinner("Initializing scraper..."):
             # Close existing scraper if any
@@ -700,7 +704,7 @@ def show_property_search():
                     
                     # Single download button that directly downloads the CSV
                     st.download_button(
-                        label="📥 Download CSV",
+                        label="Download CSV",
                         data=csv_bytes,
                         file_name=filename,
                         mime='text/csv',
@@ -760,10 +764,10 @@ def show_property_search():
 def main():
     st.set_page_config(page_title="Hong Kong Rental Property Scraper", layout="wide")
     
-    st.title("🏠 Hong Kong Rental Property Scraper")
+    st.title("Hong Kong Rental Property Scraper")
     
     # Create tabs
-    tab1, tab2 = st.tabs(["🏠 Home", "🔍 Property Search"])
+    tab1, tab2 = st.tabs(["Home", "Property Search"])
     
     with tab1:
         show_home_page()
