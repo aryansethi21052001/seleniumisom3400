@@ -42,9 +42,10 @@ class PropertyScraper:
     def __init__(self):
         """Initialise WebDriver using working approach from stock scraper"""
         self.driver = None
+        self.wait = None
         
     def setup_driver(self):
-        """Initialize the Chrome WebDriver with cloud-compatible options (from working stock scraper)"""
+        """Initialize the Chrome WebDriver with cloud-compatible options"""
         try:
             chrome_options = Options()
             
@@ -57,7 +58,11 @@ class PropertyScraper:
             chrome_options.add_argument('--window-size=1920,1080')
             chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
             
-            # Set binary location for Chromium
+            # Additional options for stability
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument('--disable-setuid-sandbox')
+            chrome_options.add_argument('--remote-debugging-port=9222')
+            
             system = platform.system()
             
             if system == 'Linux':
@@ -88,9 +93,7 @@ class PropertyScraper:
                     try:
                         service = Service(executable_path=chromedriver_path)
                         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                        self.wait = WebDriverWait(self.driver, 10)
-                        self.url = "https://www.squarefoot.com.hk/en/rent" 
-                        self.driver.get(self.url)
+                        self.wait = WebDriverWait(self.driver, 20)  # Increased timeout
                         return True
                     except Exception as e:
                         st.error(f"Error creating driver with found chromedriver: {str(e)}")
@@ -105,20 +108,43 @@ class PropertyScraper:
                     from webdriver_manager.chrome import ChromeDriverManager
                     service = Service(ChromeDriverManager().install())
                     self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                    self.wait = WebDriverWait(self.driver, 10)
-                    self.url = "https://www.squarefoot.com.hk/en/rent" 
-                    self.driver.get(self.url)
+                    self.wait = WebDriverWait(self.driver, 20)
                     return True
                 except:
                     # Fallback to selenium-manager
                     self.driver = webdriver.Chrome(options=chrome_options)
-                    self.wait = WebDriverWait(self.driver, 10)
-                    self.url = "https://www.squarefoot.com.hk/en/rent" 
-                    self.driver.get(self.url)
+                    self.wait = WebDriverWait(self.driver, 20)
                     return True
             
         except Exception as e:
             st.error(f"Error setting up WebDriver: {str(e)}")
+            return False
+    
+    def check_driver_connection(self):
+        """Check if driver is still connected and responsive"""
+        try:
+            # Try a simple operation to check connection
+            self.driver.current_url
+            return True
+        except:
+            return False
+    
+    def ensure_driver_connected(self):
+        """Ensure driver is connected, reconnect if necessary"""
+        if self.driver is None or not self.check_driver_connection():
+            st.warning("WebDriver disconnected. Reconnecting...")
+            return self.setup_driver()
+        return True
+    
+    def load_website(self):
+        """Load the target website"""
+        try:
+            self.driver.get("https://www.squarefoot.com.hk/en/rent")
+            self.wait.until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+            time.sleep(3)  # Wait for page to fully load
+            return True
+        except Exception as e:
+            st.error(f"Error loading website: {e}")
             return False
     
     def get_total_pages(self):
@@ -127,6 +153,9 @@ class PropertyScraper:
         Returns the maximum page number or 1 if no pagination found.
         """
         try:
+            if not self.ensure_driver_connected():
+                return 1
+            
             time.sleep(2)
             
             # Find pagination container
@@ -167,6 +196,9 @@ class PropertyScraper:
         Returns True if successful, False if no next page exists.
         """
         try:
+            if not self.ensure_driver_connected():
+                return False
+            
             time.sleep(1)
             
             # Find the next page button with attr1="plus"
@@ -196,6 +228,10 @@ class PropertyScraper:
         current_page = 1
         
         try:
+            if not self.ensure_driver_connected():
+                st.error("Driver disconnected. Please try again.")
+                return []
+            
             total_pages = self.get_total_pages()
             
             progress_bar = st.progress(0)
@@ -230,13 +266,29 @@ class PropertyScraper:
         Generic helper method to apply any filter on the website.
         """
         try:
+            if not self.ensure_driver_connected():
+                st.error(f"Driver disconnected while applying {filter_name} filter.")
+                return False
+            
             if choice not in mapping:
                 st.warning(f"Invalid {filter_name} choice: {choice}")
                 return False
             
             data_value = mapping[choice]
             
-            filter_container = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, f'div[attr="{filter_attr}"]')))
+            # Wait for filter container with retry
+            filter_container = None
+            for attempt in range(3):
+                try:
+                    filter_container = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, f'div[attr="{filter_attr}"]')))
+                    break
+                except:
+                    if attempt < 2:
+                        time.sleep(2)
+                        continue
+                    else:
+                        st.error(f"Could not find {filter_name} filter container")
+                        return False
             
             options = filter_container.find_elements(By.CSS_SELECTOR, '.ui.groupTop.horizontal.list.level0 a.item')
             
@@ -244,7 +296,7 @@ class PropertyScraper:
                 option_data_value = option.get_attribute('data-value')
                 if option_data_value == data_value:
                     option.click()
-                    time.sleep(1)
+                    time.sleep(2)  # Wait for filter to apply
                     return True
             
             st.warning(f"Option with data-value '{data_value}' not found for {filter_name}")
@@ -257,27 +309,45 @@ class PropertyScraper:
     def search_district(self, district):
         """Search for properties in the specified district."""
         try:
+            if not self.ensure_driver_connected():
+                st.error("Driver disconnected while searching district.")
+                return 0
+            
             search_input = self.wait.until(EC.element_to_be_clickable((By.NAME, 'searchText_temp')))
             search_input.clear()
-            time.sleep(0.5)
+            time.sleep(1)
             search_input.send_keys(district)
+            time.sleep(1)
             
             search_button = self.wait.until(EC.element_to_be_clickable((By.ID, 'searchwords_btn')))
             search_button.click()
-            time.sleep(3)
+            time.sleep(5)  # Increased wait time for results
             
-            # Get the results count directly
-            results_element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[style*="float: left"]')))
-            results_text = results_element.text.strip()
-            
-            if "results of property for lease" in results_text:
-                # Extract just the number
-                num_str = results_text.split()[0].replace(',', '')
+            # Get the results count
+            try:
+                results_element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[style*="float: left"]')))
+                results_text = results_element.text.strip()
+                
+                if "results of property for lease" in results_text:
+                    # Extract just the number
+                    num_str = results_text.split()[0].replace(',', '')
+                    try:
+                        property_count = int(num_str)
+                        return property_count
+                    except ValueError:
+                        return 0
+            except:
+                # Alternative method if the specific element isn't found
                 try:
-                    property_count = int(num_str)
-                    return property_count
-                except ValueError:
-                    return 0
+                    # Look for any element containing the results text
+                    elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'results of property for lease')]")
+                    if elements:
+                        text = elements[0].text.strip()
+                        num_str = text.split()[0].replace(',', '')
+                        return int(num_str)
+                except:
+                    pass
+                return 0
             return 0
             
         except Exception as e:
@@ -316,9 +386,16 @@ class PropertyScraper:
         properties_data = []
         
         try:
+            if not self.ensure_driver_connected():
+                return []
+            
             # Wait for property listings to load
-            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.item.property_item')))
-            time.sleep(2)
+            try:
+                self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.item.property_item')))
+                time.sleep(2)
+            except:
+                st.warning("No property items found on this page")
+                return []
             
             # Find all property listings
             property_items = self.driver.find_elements(By.CSS_SELECTOR, 'div.item.property_item')
@@ -443,7 +520,12 @@ class PropertyScraper:
     def close_driver(self):
         """Close the WebDriver"""
         if self.driver:
-            self.driver.quit()
+            try:
+                self.driver.quit()
+            except:
+                pass
+            self.driver = None
+            self.wait = None
 
 def main():
     st.title("Hong Kong Rental Property Scraper")
@@ -455,6 +537,8 @@ def main():
         st.session_state.properties_data = None
     if 'driver_initialized' not in st.session_state:
         st.session_state.driver_initialized = False
+    if 'current_page_loaded' not in st.session_state:
+        st.session_state.current_page_loaded = False
     
     # Property type mapping
     property_type_mapping = {
@@ -519,7 +603,16 @@ def main():
         
         district = st.text_input("District Name", placeholder="e.g., Central, Causeway Bay")
         
-        search_button = st.button("Search Properties", type="primary")
+        col1, col2 = st.columns(2)
+        with col1:
+            search_button = st.button("Search Properties", type="primary")
+        with col2:
+            if st.button("Reset Connection"):
+                if st.session_state.driver_initialized:
+                    st.session_state.scraper.close_driver()
+                st.session_state.driver_initialized = False
+                st.session_state.current_page_loaded = False
+                st.success("Connection reset. Please try again.")
     
     # Main content area
     if search_button and district:
@@ -533,40 +626,65 @@ def main():
                         if st.session_state.scraper.setup_driver():
                             st.session_state.driver_initialized = True
                             st.success("Web scraper initialized successfully!")
+                            
+                            # Load the website
+                            if st.session_state.scraper.load_website():
+                                st.session_state.current_page_loaded = True
+                                st.success("Website loaded successfully!")
+                            else:
+                                st.error("Failed to load website.")
+                                st.stop()
                         else:
                             st.error("Failed to initialize web scraper. Please check the error messages above.")
                             st.stop()
                 
                 scraper = st.session_state.scraper
                 
+                # Ensure driver is connected and page is loaded
+                if not scraper.ensure_driver_connected():
+                    st.error("WebDriver disconnected. Please reset the connection and try again.")
+                    st.stop()
+                
+                if not st.session_state.current_page_loaded:
+                    if scraper.load_website():
+                        st.session_state.current_page_loaded = True
+                    else:
+                        st.error("Failed to load website.")
+                        st.stop()
+                
                 # Apply filters
+                filter_success = True
                 with st.spinner("Applying filters..."):
                     # Property type filter
-                    property_type_choice = property_type_mapping[property_type]
-                    scraper.apply_generic_filter("mainType", property_type_choice, 
-                                                {property_type_choice: property_type_mapping[property_type]}, 
-                                                "Property Type")
+                    if not scraper.apply_generic_filter("mainType", property_type_mapping[property_type], 
+                                                       {property_type_mapping[property_type]: property_type_mapping[property_type]}, 
+                                                       "Property Type"):
+                        filter_success = False
                     
                     # Budget filter
-                    budget_choice = budget_mapping[budget]
-                    scraper.apply_generic_filter("price", budget_choice, 
-                                                {budget_choice: budget_mapping[budget]}, 
-                                                "Monthly Rent Budget")
+                    if not scraper.apply_generic_filter("price", budget_mapping[budget], 
+                                                       {budget_mapping[budget]: budget_mapping[budget]}, 
+                                                       "Monthly Rent Budget"):
+                        filter_success = False
                     
                     # Area filter (if applicable)
-                    if property_type != "Carpark":
-                        area_choice = area_mapping[area]
-                        scraper.apply_generic_filter("areaRange", area_choice, 
-                                                    {area_choice: area_mapping[area]}, 
-                                                    "Saleable Area")
+                    if property_type != "Carpark" and filter_success:
+                        if not scraper.apply_generic_filter("areaRange", area_mapping[area], 
+                                                           {area_mapping[area]: area_mapping[area]}, 
+                                                           "Saleable Area"):
+                            filter_success = False
                     
                     # Room filter (if applicable)
-                    if property_type != "Carpark":
-                        room_choice = list(room_mapping.keys()).index(rooms) + 1
+                    if property_type != "Carpark" and filter_success:
                         room_value = room_mapping[rooms]
-                        scraper.apply_generic_filter("roomRange", str(room_choice), 
-                                                    {str(room_choice): room_value}, 
-                                                    "Number of Rooms")
+                        room_choice = list(room_mapping.values()).index(room_value)
+                        if not scraper.apply_generic_filter("roomRange", str(room_choice), 
+                                                           {str(room_choice): room_value}, 
+                                                           "Number of Rooms"):
+                            filter_success = False
+                
+                if not filter_success:
+                    st.warning("Some filters could not be applied. Continuing with applied filters...")
                 
                 # Search district
                 with st.spinner(f"Searching for properties in {district}..."):
@@ -575,44 +693,18 @@ def main():
                 if property_count > 0:
                     st.success(f"Found {property_count:,} properties matching your criteria.")
                     
-                    # Extract data option
-                    extract_button = st.button("Extract Property Data")
+                    # Store search results in session state
+                    st.session_state.property_count = property_count
+                    st.session_state.current_district = district
                     
-                    if extract_button:
+                    # Extract data option
+                    if st.button("Extract Property Data"):
                         with st.spinner("Extracting property data... This may take a few minutes."):
                             properties_data = scraper.extract_all_property_data(district)
                         
                         if properties_data:
                             st.session_state.properties_data = properties_data
-                            
-                            # Display data in a table
-                            st.subheader("Extracted Property Data")
-                            df = pd.DataFrame(properties_data)
-                            st.dataframe(df, use_container_width=True)
-                            
-                            # Save options
-                            st.subheader("Save Options")
-                            
-                            filename = st.text_input("Enter filename to save as (without .csv)", 
-                                                    value="properties")
-                            
-                            if st.button("Save and Download CSV"):
-                                if filename:
-                                    saved_file = scraper.save_to_csv(properties_data, filename)
-                                    if saved_file:
-                                        st.success("Data saved temporarily!")
-                                        
-                                        # Provide download button
-                                        with open(saved_file, 'r', encoding='utf-8') as f:
-                                            csv_data = f.read()
-                                        st.download_button(
-                                            label="Download CSV",
-                                            data=csv_data,
-                                            file_name=filename + '.csv',
-                                            mime="text/csv"
-                                        )
-                                else:
-                                    st.warning("Please enter a filename.")
+                            st.rerun()
                         else:
                             st.warning("No property data could be extracted.")
                 else:
@@ -620,12 +712,37 @@ def main():
                     
             except Exception as e:
                 st.error(f"An error occurred: {e}")
+                st.info("Try clicking 'Reset Connection' and try again.")
     
-    # Display previously extracted data if available
-    elif st.session_state.properties_data is not None:
+    # Display extracted data if available
+    if st.session_state.properties_data is not None:
         st.subheader("Extracted Property Data")
         df = pd.DataFrame(st.session_state.properties_data)
         st.dataframe(df, use_container_width=True)
+        
+        # Save options
+        st.subheader("Save Options")
+        
+        filename = st.text_input("Enter filename to save as (without .csv)", 
+                                value="properties")
+        
+        if st.button("Save and Download CSV"):
+            if filename:
+                saved_file = st.session_state.scraper.save_to_csv(st.session_state.properties_data, filename)
+                if saved_file:
+                    st.success("Data saved temporarily!")
+                    
+                    # Provide download button
+                    with open(saved_file, 'r', encoding='utf-8') as f:
+                        csv_data = f.read()
+                    st.download_button(
+                        label="Download CSV",
+                        data=csv_data,
+                        file_name=filename + '.csv',
+                        mime="text/csv"
+                    )
+            else:
+                st.warning("Please enter a filename.")
     
     # Instructions
     if not st.session_state.properties_data and not search_button:
@@ -641,6 +758,8 @@ def main():
             6. After searching, click 'Extract Property Data' to scrape detailed information
             7. View the extracted data in the table
             8. Save and download the data as a CSV file
+            
+            If you encounter connection issues, click 'Reset Connection' and try again.
             """)
 
 if __name__ == "__main__":
