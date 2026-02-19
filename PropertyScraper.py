@@ -464,128 +464,132 @@ class PropertyScraper:
         if hasattr(self, 'driver'):
             self.driver.quit()
 
+def show_instructions():
+    with st.expander("Instructions", expanded=True):
+        st.markdown("""
+        ### Welcome to the Hong Kong Rental Property Scraper!
+        
+        This tool helps you search and extract rental property data *(retrieved from SquareFoot.com.hk)*. Follow the steps below to get started:
+        
+        ---
+        
+        ### Quick Start Guide
+        
+        #### Step 1: Apply Filters (Optional)
+        Use the sidebar to narrow down your search:
+        - **Property Type**: Select from All, Apartment, Carpark, Office, or Shop
+        - **Monthly Budget**: Choose your preferred rental price range
+        - **Saleable Area**: Filter by property size (not applicable for Carpark)
+        - **Number of Rooms**: Select bedroom requirements (not applicable for Carpark)
+        
+        #### Step 2: Enter District
+        - Type the Hong Kong district you want to search (e.g., "Central", "Causeway Bay", "Tsim Sha Tsui")
+        - Click the **"Search Properties"** button
+        
+        #### Step 3: Review Search Results
+        - The app will show you how many properties were found
+        - If no properties match your criteria, try broadening your filters
+        
+        #### Step 4: Extract Data
+        - Click **"Extract Property Data"** to start scraping
+        - A progress bar will show you:
+          - Total properties being scraped
+          - Real-time progress (X of Y properties)
+        - Extraction time varies based on the number of properties (typically 1-5 minutes)
+        
+        #### Step 5: Download Your Data
+        - Once extraction is complete, you'll see:
+          - A table with all property details
+          - Statistics showing totals and averages
+          - A **"Download CSV"** button
+        - Click the download button to save the data as a CSV file
+        
+        ---
+        
+        ### What Data Gets Extracted?
+        
+        For each property, the scraper collects:
+        
+        1. **District** - Your searched location
+        2. **Property Name** - Building/project name
+        3. **Street Address** - Full street address
+        4. **Monthly Rental Price** - In HKD
+        5. **Net Area** - Size in square feet
+        6. **Number of Bedrooms**
+        7. **Number of Bathrooms**
+        8. **Property URL** - Direct link to the listing
+        
+        ---
+        
+        ### Tips & Best Practices
+        
+        **For Better Search Results:**
+        - Start with broader filters, then narrow down
+        - Use standard district names (e.g., "Wan Chai" not "Wanchai")
+        - Check spelling - the search is case-insensitive but needs correct spelling
+        
+        **For Faster Extraction:**
+        - Fewer properties = faster extraction
+        - Use specific filters to reduce result count
+        - The scraper processes 10 properties per page
+        
+        **Common Issues:**
+        - **"No properties found"**: Try removing some filters
+        - **Slow extraction**: Large searches (1000+ properties) take time
+        - **Connection errors**: The website might be slow; try again
+        - **Missing data**: Some listings may have incomplete information
+        
+        ---
+        
+        ### Frequently Asked Questions
+        
+        **Q: How many properties can I scrape at once?**
+        A: There's no limit! The tool will scrape all properties matching your criteria.
+        
+        **Q: Is the data accurate?**
+        A: The data comes directly from SquareFoot.com.hk. The scraper extracts exactly what's displayed on the website.
+        
+        **Q: Can I scrape for sale properties instead of rent?**
+        A: Currently, this tool is configured for rental properties only.
+        
+        **Q: Why do some fields show "N/A"?**
+        A: Some listings may not include all information. The scraper marks missing data as "N/A".
+        
+        **Q: What format is the downloaded file?**
+        A: The file is in CSV format, which can be opened in Excel, Google Sheets, or any spreadsheet software.
+        
+        ---
+        
+        ### Pro Tips
+        
+        - **Save multiple searches**: Download separate CSV files for different districts or filter combinations
+        - **Combine data**: You can merge multiple CSV files in Excel for comprehensive analysis
+        - **Market analysis**: Use the statistics panel to quickly see average prices in different areas
+        - **Track changes**: Run the same search monthly to track rental price trends
+        
+        ---
+        
+        ### Need Help?
+        
+        If you encounter any issues:
+        - Check your internet connection
+        - Verify the district name is correct
+        - Try refreshing the page and starting over
+        - Make sure you're not blocking the website with any browser extensions
+        
+        ---
+        
+        *Happy Property Hunting!*
+        """)
+
 def main():
     st.set_page_config(page_title="Hong Kong Rental Property Scraper", layout="wide")
     
     st.title("Hong Kong Rental Property Scraper")
 
-    st.subheader("Instructions")
+    if not st.session_state.get('search_performed') and not st.session_state.get('properties_data'):
+        show_instructions()
 
-    with st.expander("Instructions", expanded=True):
-            st.markdown("""
-            This tool helps you search and extract rental property data in Hong Kong*. Follow the steps below to get started:
-            
-            ---
-            
-            ### Quick Start Guide
-            
-            #### Step 1: Apply Filters (Optional)
-            Use the sidebar to narrow down your search:
-            - **Property Type**: Select from All, Apartment, Carpark, Office, or Shop
-            - **Monthly Budget**: Choose your preferred rental price range
-            - **Saleable Area**: Filter by property size (not applicable for Carpark)
-            - **Number of Rooms**: Select bedroom requirements (not applicable for Carpark)
-            
-            #### Step 2: Enter District
-            - Type the Hong Kong district you want to search (e.g., "Central", "Causeway Bay", "Tsim Sha Tsui")
-            - Click the **"Search Properties"** button
-            
-            #### Step 3: Review Search Results
-            - The app will show you how many properties were found
-            - If no properties match your criteria, try broadening your filters
-            
-            #### Step 4: Extract Data
-            - Click **"Extract Property Data"** to start scraping
-            - A progress bar will show you:
-              - Total properties being scraped
-              - Real-time progress
-            - Extraction time varies based on the number of properties (typically 1-5 minutes)
-            
-            #### Step 5: Download Your Data
-            - Once extraction is complete, you'll see:
-              - A table with all property details
-              - Statistics showing totals and averages
-              - A **"Download CSV"** button
-            - Click the download button to save the data as a CSV file
-            
-            ---
-            
-            ### What Data Gets Extracted?
-            
-            For each property, the scraper collects:
-            
-            1. **District** - Your searched location
-            2. **Property Name** - Building/project name
-            3. **Street Address** - Full street address
-            4. **Monthly Rental Price** - In HKD
-            5. **Net Area** - Size in square feet
-            6. **Number of Bedrooms**
-            7. **Number of Bathrooms**
-            8. **Property URL** - Direct link to the listing
-            
-            ---
-            
-            ### Tips & Best Practices
-            
-            **For Better Search Results:**
-            - Start with broader filters, then narrow down
-            - Use standard district names (e.g., "Wan Chai" not "Wanchai")
-            - Check spelling - the search is case-insensitive but needs correct spelling
-            
-            **For Faster Extraction:**
-            - Fewer properties = faster extraction
-            - Use specific filters to reduce result count
-            - The scraper processes 10 properties per page
-            
-            **Common Issues:**
-            - **"No properties found"**: Try removing some filters
-            - **Slow extraction**: Large searches (1000+ properties) take time
-            - **Connection errors**: The website might be slow; try again
-            - **Missing data**: Some listings may have incomplete information
-            
-            ---
-            
-            ### Frequently Asked Questions
-            
-            **Q: How many properties can I scrape at once?**
-            A: There's no limit! The tool will scrape all properties matching your criteria.
-            
-            **Q: Is the data accurate?**
-            A: The data comes directly from SquareFoot.com.hk. The scraper extracts exactly what's displayed on the website.
-            
-            **Q: Can I scrape for sale properties instead of rent?**
-            A: Currently, this tool is configured for rental properties only.
-            
-            **Q: Why do some fields show "N/A"?**
-            A: Some listings may not include all information. The scraper marks missing data as "N/A".
-            
-            **Q: What format is the downloaded file?**
-            A: The file is in CSV format, which can be opened in Excel, Google Sheets, or any spreadsheet software.
-            
-            ---
-            
-            ### Pro Tips
-            
-            - **Save multiple searches**: Download separate CSV files for different districts or filter combinations
-            - **Combine data**: You can merge multiple CSV files in Excel for comprehensive analysis
-            - **Market analysis**: Use the statistics panel to quickly see average prices in different areas
-            - **Track changes**: Run the same search monthly to track rental price trends
-            
-            ---
-            
-            ### Need Help?
-            
-            If you encounter any issues:
-            - Check your internet connection
-            - Verify the district name is correct
-            - Try refreshing the page and starting over
-            - Make sure you're not blocking the website with any browser extensions
-            
-            ---
-            
-            *Happy Property Hunting!*
-            *All property data is retrieved from squarefoot.com.hk*
-            """)
 
     # Initialize session state
     if 'scraper' not in st.session_state:
