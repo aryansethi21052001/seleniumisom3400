@@ -127,16 +127,16 @@ class PropertyScraper:
         
         try:
             total_pages = self.get_total_pages()
-            st.info(f"Total pages to scrape: {total_pages}")
+            total_properties = total_pages * 10
+            st.info(f"Total properties to scrape: {total_properties}")
             
             progress_bar = st.progress(0)
             status_text = st.empty()
             
             while current_page <= total_pages:
-                status_text.text(f"Extracting page {current_page}/{total_pages}...")
+                status_text.text(f"Extracting properties...")
                 
                 page_properties = self.extract_property_data(district)
-                st.info(f"Found {len(page_properties)} properties on page {current_page}")
                 all_properties_data.extend(page_properties)
                 
                 # Update progress
@@ -673,7 +673,6 @@ def main():
         else:
             st.info("No property data could be extracted. The search found properties but extraction failed.")
     
-    # Show message if no data
     elif st.session_state.search_performed and st.session_state.extract_clicked:
         st.info("No property data could be extracted.")
     
