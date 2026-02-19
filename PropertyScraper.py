@@ -586,8 +586,9 @@ def main():
     st.title("Hong Kong Rental Property Scraper")
 
     st.subheader("Instructions")
-    
-    
+
+    show_instructions()
+
     # Initialize session state
     if 'scraper' not in st.session_state:
         st.session_state.scraper = None
