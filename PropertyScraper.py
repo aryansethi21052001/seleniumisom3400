@@ -543,6 +543,10 @@ def main():
         st.session_state.driver_initialized = False
     if 'current_page_loaded' not in st.session_state:
         st.session_state.current_page_loaded = False
+    if 'extraction_in_progress' not in st.session_state:
+        st.session_state.extraction_in_progress = False
+    if 'extraction_complete' not in st.session_state:
+        st.session_state.extraction_complete = False
     
     # Property type mapping
     property_type_mapping = {
@@ -597,26 +601,30 @@ def main():
     with st.sidebar:
         st.header("Search Filters")
         
-        property_type = st.selectbox("Property Type", property_type_options, index=0)
-        budget = st.selectbox("Monthly Budget (HKD)", budget_options, index=0)
+        property_type = st.selectbox("Property Type", property_type_options, index=0, key="property_type")
+        budget = st.selectbox("Monthly Budget (HKD)", budget_options, index=0, key="budget")
         
         # Only show area and room filters if property type is not Carpark
         if property_type != "Carpark":
-            area = st.selectbox("Saleable Area", area_options, index=0)
-            rooms = st.selectbox("Number of Rooms", room_options, index=0)
+            area = st.selectbox("Saleable Area", area_options, index=0, key="area")
+            rooms = st.selectbox("Number of Rooms", room_options, index=0, key="rooms")
         
-        district = st.text_input("District Name", placeholder="e.g., Central, Causeway Bay")
+        district = st.text_input("District Name", placeholder="e.g., Central, Causeway Bay", key="district")
         
         col1, col2 = st.columns(2)
         with col1:
-            search_button = st.button("Search Properties", type="primary")
+            search_button = st.button("Search Properties", type="primary", key="search_btn")
         with col2:
-            if st.button("Reset Connection"):
+            if st.button("Reset Connection", key="reset_btn"):
                 if st.session_state.driver_initialized:
                     st.session_state.scraper.close_driver()
                 st.session_state.driver_initialized = False
                 st.session_state.current_page_loaded = False
+                st.session_state.extraction_in_progress = False
+                st.session_state.extraction_complete = False
+                st.session_state.properties_data = None
                 st.success("Connection reset. Please try again.")
+                st.rerun()
     
     # Main content area
     if search_button and district:
@@ -702,54 +710,81 @@ def main():
                     st.session_state.current_district = district
                     
                     # Extract data option
-                    if st.button("Extract Property Data"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        extract_button = st.button("Extract Property Data", key="extract_btn", type="primary")
+                    with col2:
+                        if st.button("Cancel", key="cancel_btn"):
+                            st.session_state.extraction_in_progress = False
+                            st.session_state.extraction_complete = False
+                            st.rerun()
+
+                    if extract_button and not st.session_state.extraction_in_progress:
+                        st.session_state.extraction_in_progress = True
+                        st.rerun()
+
+                    if st.session_state.extraction_in_progress:
                         with st.spinner("Extracting property data... This may take a few minutes."):
                             properties_data = scraper.extract_all_property_data(district)
                         
                         if properties_data:
                             st.session_state.properties_data = properties_data
+                            st.session_state.extraction_complete = True
+                            st.session_state.extraction_in_progress = False
                             st.rerun()
                         else:
                             st.warning("No property data could be extracted.")
+                            st.session_state.extraction_in_progress = False
                 else:
                     st.warning("No properties found in this district.")
                     
             except Exception as e:
                 st.error(f"An error occurred: {e}")
                 st.info("Try clicking 'Reset Connection' and try again.")
-    
-    # Display extracted data if available
-    if st.session_state.properties_data is not None:
-        st.subheader("Extracted Property Data")
-        df = pd.DataFrame(st.session_state.properties_data)
-        st.dataframe(df, use_container_width=True)
-        
-        # Save options
-        st.subheader("Save Options")
-        
-        filename = st.text_input("Enter filename to save as (without .csv)", 
-                                value="properties")
-        
-        if st.button("Save and Download CSV"):
-            if filename:
-                saved_file = st.session_state.scraper.save_to_csv(st.session_state.properties_data, filename)
-                if saved_file:
-                    st.success("Data saved temporarily!")
-                    
-                    # Provide download button
-                    with open(saved_file, 'r', encoding='utf-8') as f:
-                        csv_data = f.read()
-                    st.download_button(
-                        label="Download CSV",
-                        data=csv_data,
-                        file_name=filename + '.csv',
-                        mime="text/csv"
-                    )
-            else:
-                st.warning("Please enter a filename.")
-    
+
+    # Results container
+    results_container = st.container()
+
+    with results_container:
+        # Display extracted data if available
+        if st.session_state.properties_data is not None and st.session_state.extraction_complete:
+            st.subheader("Extracted Property Data")
+            df = pd.DataFrame(st.session_state.properties_data)
+            st.dataframe(df, use_container_width=True)
+            
+            # Save options
+            st.subheader("Save Options")
+            
+            filename = st.text_input("Enter filename to save as (without .csv)", 
+                                    value="properties", key="filename_input")
+            
+            if st.button("Save and Download CSV", key="save_btn"):
+                if filename:
+                    saved_file = st.session_state.scraper.save_to_csv(st.session_state.properties_data, filename)
+                    if saved_file:
+                        st.success("Data saved temporarily!")
+                        
+                        # Provide download button
+                        with open(saved_file, 'r', encoding='utf-8') as f:
+                            csv_data = f.read()
+                        st.download_button(
+                            label="Download CSV",
+                            data=csv_data,
+                            file_name=filename + '.csv',
+                            mime="text/csv",
+                            key="download_btn"
+                        )
+                else:
+                    st.warning("Please enter a filename.")
+            
+            # Add a clear button
+            if st.button("Clear Results", key="clear_btn"):
+                st.session_state.properties_data = None
+                st.session_state.extraction_complete = False
+                st.rerun()
+
     # Instructions
-    if not st.session_state.properties_data and not search_button:
+    if not st.session_state.properties_data and not search_button and not st.session_state.extraction_in_progress:
         st.info("Use the filters in the sidebar to search for rental properties in Hong Kong.")
         
         with st.expander("How to use this app"):
