@@ -11,6 +11,7 @@ import csv
 import os
 import pandas as pd
 from tempfile import NamedTemporaryFile
+import io
 
 class PropertyScraper:
     def __init__(self):
@@ -117,6 +118,7 @@ class PropertyScraper:
             return 1
         except:
             return 1
+    
     def extract_all_property_data(self, district, total_properties):
         """
         Extract data from all property listings across all pages.
@@ -426,44 +428,36 @@ class PropertyScraper:
         
         return properties_data
     
-    def save_to_csv(self, properties_data, filename):
+    def save_to_csv(self, properties_data):
         """
-        Save extracted property data to a CSV file.
+        Save extracted property data to a CSV string and return as bytes.
         """
         if not properties_data:
             return None
         
         try:
-            # Add .csv extension if not present
-            if not filename.endswith('.csv'):
-                filename = filename + '.csv'
-            
             # Define headers
             headers = [
                 "District", "Name", "Street Address", "Monthly Rental Price (in HKD)", 
                 "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
             ]
             
-            # Write to CSV
-            with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=headers)
-                writer.writeheader()
-                for property_data in properties_data:
-                    writer.writerow(property_data)
+            # Create a string buffer to write CSV data
+            output = io.StringIO()
+            writer = csv.DictWriter(output, fieldnames=headers)
+            writer.writeheader()
+            for property_data in properties_data:
+                writer.writerow(property_data)
             
-            return filename
+            # Get the CSV string and encode to bytes
+            csv_string = output.getvalue()
+            output.close()
+            
+            return csv_string.encode('utf-8')
             
         except Exception as e:
             st.error(f"Error saving to CSV: {e}")
             return None
-    
-    def list_csv_files(self):
-        """List all CSV files in current directory."""
-        csv_files = []
-        for file in os.listdir('.'):
-            if file.endswith('.csv'):
-                csv_files.append(file)
-        return csv_files
     
     def close(self):
         """Close the WebDriver."""
@@ -602,44 +596,22 @@ def main():
             # Display dataframe
             st.dataframe(df, use_container_width=True)
             
-            # Download buttons
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Save to CSV button
-                if st.button("Save to CSV", key="save_csv_button"):
-                    if st.session_state.scraper:
-                        filename = f"property_data_{st.session_state.current_district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
-                        saved_file = st.session_state.scraper.save_to_csv(st.session_state.properties_data, filename)
-                        if saved_file:
-                            st.success(f"Data saved to {saved_file}")
-                            
-                            # Provide download link
-                            with open(saved_file, 'rb') as f:
-                                st.download_button(
-                                    label="Download CSV",
-                                    data=f,
-                                    file_name=saved_file,
-                                    mime='text/csv',
-                                    key="download_csv_button"
-                                )
-                    else:
-                        st.error("Scraper not available. Please search again.")
-            
-            with col2:
-                # Preview existing CSV files
-                if st.session_state.scraper:
-                    csv_files = st.session_state.scraper.list_csv_files()
-                    if csv_files:
-                        with st.expander("View Existing CSV Files"):
-                            for file in csv_files:
-                                try:
-                                    size = os.path.getsize(file)
-                                    with open(file, 'r', encoding='utf-8') as f:
-                                        row_count = sum(1 for _ in f) - 1
-                                    st.text(f"{file} ({row_count} properties, {size:,} bytes)")
-                                except:
-                                    st.text(f"{file}")
+            # Generate CSV for download
+            if st.session_state.scraper:
+                csv_bytes = st.session_state.scraper.save_to_csv(st.session_state.properties_data)
+                
+                if csv_bytes:
+                    # Create filename
+                    filename = f"property_data_{st.session_state.current_district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                    
+                    # Single download button that directly downloads the CSV
+                    st.download_button(
+                        label="📥 Download CSV",
+                        data=csv_bytes,
+                        file_name=filename,
+                        mime='text/csv',
+                        key="download_csv_button"
+                    )
             
             # Display statistics
             st.header("Statistics")
