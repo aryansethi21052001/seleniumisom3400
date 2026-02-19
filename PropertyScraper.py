@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 
 def find_chromedriver():
-    """Find chromedriver in common locations (from working stock scraper)"""
+    """Find chromedriver in common locations"""
     possible_paths = [
         '/usr/bin/chromedriver',
         '/usr/lib/chromium/chromedriver',
@@ -40,9 +40,10 @@ def find_chromedriver():
 
 class PropertyScraper:
     def __init__(self):
-        """Initialise WebDriver using working approach from stock scraper"""
+        """Initialise WebDriver"""
         self.driver = None
         self.wait = None
+        self.url = "https://www.squarefoot.com.hk/en/rent"
         
     def setup_driver(self):
         """Initialize the Chrome WebDriver with cloud-compatible options"""
@@ -93,7 +94,8 @@ class PropertyScraper:
                     try:
                         service = Service(executable_path=chromedriver_path)
                         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                        self.wait = WebDriverWait(self.driver, 20)  # Increased timeout
+                        self.wait = WebDriverWait(self.driver, 20)
+                        self.url = "https://www.squarefoot.com.hk/en/rent"
                         return True
                     except Exception as e:
                         st.error(f"Error creating driver with found chromedriver: {str(e)}")
@@ -109,11 +111,13 @@ class PropertyScraper:
                     service = Service(ChromeDriverManager().install())
                     self.driver = webdriver.Chrome(service=service, options=chrome_options)
                     self.wait = WebDriverWait(self.driver, 20)
+                    self.url = "https://www.squarefoot.com.hk/en/rent"
                     return True
                 except:
                     # Fallback to selenium-manager
                     self.driver = webdriver.Chrome(options=chrome_options)
                     self.wait = WebDriverWait(self.driver, 20)
+                    self.url = "https://www.squarefoot.com.hk/en/rent"
                     return True
             
         except Exception as e:
@@ -128,7 +132,7 @@ class PropertyScraper:
             return True
         except:
             return False
-    
+
     def ensure_driver_connected(self):
         """Ensure driver is connected, reconnect if necessary"""
         if self.driver is None or not self.check_driver_connection():
@@ -139,9 +143,9 @@ class PropertyScraper:
     def load_website(self):
         """Load the target website"""
         try:
-            self.driver.get("https://www.squarefoot.com.hk/en/rent")
+            self.driver.get(self.url)
             self.wait.until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
-            time.sleep(3)  # Wait for page to fully load
+            time.sleep(3)
             return True
         except Exception as e:
             st.error(f"Error loading website: {e}")
@@ -296,7 +300,7 @@ class PropertyScraper:
                 option_data_value = option.get_attribute('data-value')
                 if option_data_value == data_value:
                     option.click()
-                    time.sleep(2)  # Wait for filter to apply
+                    time.sleep(2)
                     return True
             
             st.warning(f"Option with data-value '{data_value}' not found for {filter_name}")
@@ -321,7 +325,7 @@ class PropertyScraper:
             
             search_button = self.wait.until(EC.element_to_be_clickable((By.ID, 'searchwords_btn')))
             search_button.click()
-            time.sleep(5)  # Increased wait time for results
+            time.sleep(5)
             
             # Get the results count
             try:
