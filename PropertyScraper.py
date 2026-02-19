@@ -590,7 +590,6 @@ def main():
     if not st.session_state.get('search_performed') and not st.session_state.get('properties_data'):
         show_instructions()
 
-
     # Initialize session state
     if 'scraper' not in st.session_state:
         st.session_state.scraper = None
