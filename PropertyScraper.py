@@ -719,9 +719,9 @@ def main():
                             st.session_state.extraction_complete = False
                             st.rerun()
 
-                    if extract_button and not st.session_state.extraction_in_progress:
-                        st.session_state.extraction_in_progress = True
-                        st.rerun()
+                    # if extract_button and not st.session_state.extraction_in_progress:
+                    #     st.session_state.extraction_in_progress = True
+                    #     st.rerun()
 
                     if st.session_state.extraction_in_progress:
                         with st.spinner("Extracting property data... This may take a few minutes."):
