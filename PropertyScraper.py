@@ -118,15 +118,15 @@ class PropertyScraper:
         except:
             return 1
     def extract_all_property_data(self, district, total_properties):
-    """
-    Extract data from all property listings across all pages.
-    
-    Args:
-        district: The district to scrape
-        total_properties: Total number of properties found (from search results)
-    """
-    all_properties_data = []
-    current_page = 1
+        """
+        Extract data from all property listings across all pages.
+        
+        Args:
+            district: The district to scrape
+            total_properties: Total number of properties found (from search results)
+        """
+        all_properties_data = []
+        current_page = 1
     
         try:
             total_pages = self.get_total_pages()
