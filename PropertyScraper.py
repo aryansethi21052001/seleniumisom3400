@@ -466,6 +466,12 @@ def main():
         st.session_state.properties_data = None
     if 'search_performed' not in st.session_state:
         st.session_state.search_performed = False
+    if 'extract_clicked' not in st.session_state:
+        st.session_state.extract_clicked = False
+    if 'current_district' not in st.session_state:
+        st.session_state.current_district = ""
+    if 'property_count' not in st.session_state:
+        st.session_state.property_count = 0
     
     # Sidebar for filters
     with st.sidebar:
@@ -511,7 +517,7 @@ def main():
             st.info("Room filter not applicable for Carpark")
         
         # District Input
-        district = st.text_input("District Name", key="district")
+        district = st.text_input("District Name", key="district_input")
         
         # Search Button
         search_button = st.button("Search Properties", type="primary", disabled=not district)
@@ -535,23 +541,30 @@ def main():
                 
                 # Search district
                 property_count = st.session_state.scraper.search_district(district)
+                st.session_state.property_count = property_count
+                st.session_state.current_district = district
                 
                 if property_count > 0:
                     st.success(f"Found {property_count:,} properties")
-                    
-                    # Extract data
-                    if st.button("Extract Property Data"):
-                        with st.spinner("Extracting property data..."):
-                            st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(district)
-                            st.session_state.search_performed = True
+                    st.session_state.search_performed = True
                 else:
                     st.warning("No properties found in this district")
+                    st.session_state.search_performed = False
                     
             except Exception as e:
                 st.error(f"Error during search: {e}")
+                st.session_state.search_performed = False
+    
+    # Show extract button if search was successful and data not yet extracted
+    if st.session_state.search_performed and not st.session_state.extract_clicked and st.session_state.property_count > 0:
+        if st.button("Extract Property Data", key="extract_button"):
+            with st.spinner("Extracting property data..."):
+                st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(st.session_state.current_district)
+                st.session_state.extract_clicked = True
+                st.rerun()
     
     # Display results
-    if st.session_state.search_performed and st.session_state.properties_data:
+    if st.session_state.get('properties_data') is not None and len(st.session_state.properties_data) > 0:
         st.header("Search Results")
         
         # Convert to DataFrame for display
@@ -565,8 +578,8 @@ def main():
         
         with col1:
             # Save to CSV button
-            if st.button("Save to CSV"):
-                filename = f"property_data_{district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            if st.button("Save to CSV", key="save_csv_button"):
+                filename = f"property_data_{st.session_state.current_district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
                 saved_file = st.session_state.scraper.save_to_csv(st.session_state.properties_data, filename)
                 if saved_file:
                     st.success(f"Data saved to {saved_file}")
@@ -577,22 +590,24 @@ def main():
                             label="Download CSV",
                             data=f,
                             file_name=saved_file,
-                            mime='text/csv'
+                            mime='text/csv',
+                            key="download_csv_button"
                         )
         
         with col2:
             # Preview existing CSV files
-            csv_files = st.session_state.scraper.list_csv_files()
-            if csv_files:
-                with st.expander("View Existing CSV Files"):
-                    for file in csv_files:
-                        try:
-                            size = os.path.getsize(file)
-                            with open(file, 'r', encoding='utf-8') as f:
-                                row_count = sum(1 for _ in f) - 1
-                            st.text(f"{file} ({row_count} properties, {size:,} bytes)")
-                        except:
-                            st.text(f"{file} ({size:,} bytes)")
+            if st.session_state.scraper:
+                csv_files = st.session_state.scraper.list_csv_files()
+                if csv_files:
+                    with st.expander("View Existing CSV Files"):
+                        for file in csv_files:
+                            try:
+                                size = os.path.getsize(file)
+                                with open(file, 'r', encoding='utf-8') as f:
+                                    row_count = sum(1 for _ in f) - 1
+                                st.text(f"{file} ({row_count} properties, {size:,} bytes)")
+                            except:
+                                st.text(f"{file} ({size:,} bytes)")
         
         # Display statistics
         st.header("Statistics")
@@ -637,6 +652,10 @@ def main():
                 st.metric("Average Area (sqft)", f"{avg_area}")
             else:
                 st.metric("Average Area (sqft)", "N/A")
+    
+    # Show message if no data
+    elif st.session_state.search_performed and st.session_state.extract_clicked and (not st.session_state.properties_data or len(st.session_state.properties_data) == 0):
+        st.info("No property data could be extracted.")
     
     # Cleanup on session end
     if st.session_state.scraper:
