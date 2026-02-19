@@ -1,34 +1,125 @@
 import streamlit as st
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 import time
 import csv
 import os
 import pandas as pd
+import platform
+import subprocess
+import tempfile
+
+def find_chromedriver():
+    """Find chromedriver in common locations (from working stock scraper)"""
+    possible_paths = [
+        '/usr/bin/chromedriver',
+        '/usr/lib/chromium/chromedriver',
+        '/usr/lib/chromium-browser/chromedriver',
+        '/snap/bin/chromium.chromedriver',
+        '/usr/local/bin/chromedriver'
+    ]
+    
+    # Try common paths
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+    
+    # Try using 'which' command
+    try:
+        result = subprocess.run(['which', 'chromedriver'], capture_output=True, text=True)
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except:
+        pass
+    
+    return None
 
 class PropertyScraper:
     def __init__(self):
-        """Initialise WebDriver"""
+        """Initialise WebDriver using working approach from stock scraper"""
+        self.driver = None
+        
+    def setup_driver(self):
+        """Initialize the Chrome WebDriver with cloud-compatible options (from working stock scraper)"""
         try:
-            self.service = Service(ChromeDriverManager().install())
             chrome_options = Options()
-            chrome_options.add_argument("--headless=new")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--disable-extensions")
-            self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
-            self.wait = WebDriverWait(self.driver, 10)
-            self.url = "https://www.squarefoot.com.hk/en/rent" 
-            self.driver.get(self.url)
+            
+            # Essential options for cloud environment
+            chrome_options.add_argument('--headless=new')
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+            chrome_options.add_argument('--window-size=1920,1080')
+            chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+            
+            # Set binary location for Chromium
+            system = platform.system()
+            
+            if system == 'Linux':
+                # For Streamlit Cloud - try multiple binary locations
+                chromium_paths = [
+                    '/usr/bin/chromium',
+                    '/usr/bin/chromium-browser',
+                    '/snap/bin/chromium',
+                    '/usr/bin/google-chrome',
+                    '/usr/bin/google-chrome-stable'
+                ]
+                
+                binary_found = False
+                for path in chromium_paths:
+                    if os.path.exists(path):
+                        chrome_options.binary_location = path
+                        binary_found = True
+                        break
+                
+                if not binary_found:
+                    st.error("Chromium/Chrome browser not found. Please ensure it's installed.")
+                    return False
+                
+                # Find chromedriver
+                chromedriver_path = find_chromedriver()
+                
+                if chromedriver_path:
+                    try:
+                        service = Service(executable_path=chromedriver_path)
+                        self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                        self.wait = WebDriverWait(self.driver, 10)
+                        self.url = "https://www.squarefoot.com.hk/en/rent" 
+                        self.driver.get(self.url)
+                        return True
+                    except Exception as e:
+                        st.error(f"Error creating driver with found chromedriver: {str(e)}")
+                        return False
+                else:
+                    st.error("ChromeDriver not found. Please ensure chromium-driver is installed.")
+                    return False
+            
+            else:
+                # For local Windows/Mac development
+                try:
+                    from webdriver_manager.chrome import ChromeDriverManager
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                    self.wait = WebDriverWait(self.driver, 10)
+                    self.url = "https://www.squarefoot.com.hk/en/rent" 
+                    self.driver.get(self.url)
+                    return True
+                except:
+                    # Fallback to selenium-manager
+                    self.driver = webdriver.Chrome(options=chrome_options)
+                    self.wait = WebDriverWait(self.driver, 10)
+                    self.url = "https://www.squarefoot.com.hk/en/rent" 
+                    self.driver.get(self.url)
+                    return True
+            
         except Exception as e:
-            st.error(f"Error setting up WebDriver: {e}")
-            raise
+            st.error(f"Error setting up WebDriver: {str(e)}")
+            return False
     
     def get_total_pages(self):
         """
@@ -68,27 +159,6 @@ class PropertyScraper:
                     
         except Exception as e:
             st.error(f"Error getting total pages: {e}")
-            return 1
-    
-    def get_current_page_number(self):
-        """
-        Get the current page number.
-        """
-        try:
-            # Find active page item
-            active_items = self.driver.find_elements(By.CSS_SELECTOR, 'a.item.active')
-            
-            for item in active_items:
-                text = item.text.strip()
-                if text:
-                    try:
-                        # Try to convert to integer
-                        return int(text)
-                    except ValueError:
-                        continue
-            
-            return 1
-        except:
             return 1
     
     def go_to_next_page(self):
@@ -158,15 +228,6 @@ class PropertyScraper:
     def apply_generic_filter(self, filter_attr, choice, mapping, filter_name):
         """
         Generic helper method to apply any filter on the website.
-        
-        Args:
-            filter_attr: The 'attr' attribute value (e.g., "mainType", "price", "areaRange")
-            choice: The user's choice (string like "1", "2", "3", etc.)
-            mapping: Dictionary mapping user choice to website data-value
-            filter_name: Name of the filter for logging (e.g., "property type", "budget")
-        
-        Returns:
-            bool: True if successful, False otherwise
         """
         try:
             if choice not in mapping:
@@ -245,8 +306,7 @@ class PropertyScraper:
             else:
                 return 'N/A'
                 
-        except Exception as e:
-            st.error(f"Error extracting property name: {e}")
+        except Exception:
             return 'N/A'
     
     def extract_property_data(self, district):
@@ -274,7 +334,7 @@ class PropertyScraper:
                     try:
                         header_cat = item.find_element(By.CSS_SELECTOR, 'div.header.cat')
                         property_data['Name'] = self.extract_property_name(header_cat, district)
-                    except Exception as e:
+                    except Exception:
                         property_data['Name'] = 'N/A'
                     
                     # 3. STREET ADDRESS - Extract property address
@@ -286,17 +346,15 @@ class PropertyScraper:
                             property_data['Street Address'] = meta_divs[0].text.strip()
                         else:
                             property_data['Street Address'] = 'N/A'
-                    except Exception as e:
+                    except Exception:
                         property_data['Street Address'] = 'N/A'
                     
                     # 4. RENTAL PRICE - Extract property rental prices
                     try:
                         price_element = item.find_element(By.CSS_SELECTOR, 'span.priceDesc.rentDesc')
                         price_text = price_element.text.strip()
-                        # Remove "Lease HKD$" and keep just the number
-                        # Example: "Lease HKD$23,900" -> "23,900"
                         property_data['Monthly Rental Price (in HKD)'] = price_text.replace('Lease HKD$', '').strip()   
-                    except Exception as e:
+                    except Exception:
                         property_data['Monthly Rental Price (in HKD)'] = 'N/A'
         
                     # 5, 6, 7. Extract Net Area, Bedrooms, and Bathrooms
@@ -310,47 +368,35 @@ class PropertyScraper:
                             if 'ft²' in text:
                                 # Split the text by whitespace
                                 parts = text.split()
-                                # Splitting it makes the text become for example ["452", "ft²", " 2", "1"]
-                                # 1. Net Area (first number before ft²)
                                 if len(parts) > 0:
-                                    property_data['Net Area (sqft)'] = parts[0]  # e.g., "452"
-                                
-                                # 2. Bedrooms (third element, index 2)
+                                    property_data['Net Area (sqft)'] = parts[0]
                                 if len(parts) > 2:
                                     property_data['Number of Bedrooms'] = parts[2]
-                                
-                                # 3. Bathrooms (fourth element, index 3)
                                 if len(parts) > 3:
                                     property_data['Number of Bathrooms'] = parts[3]
-                                
-                                break  # Found the right header, exit loop
+                                break
                         
-                        # Set defaults if not found
                         if 'Net Area (sqft)' not in property_data:
                             property_data['Net Area (sqft)'] = 'N/A'
                         if 'Number of Bedrooms' not in property_data:
                             property_data['Number of Bedrooms'] = 'N/A'
                         if 'Number of Bathrooms' not in property_data:
                             property_data['Number of Bathrooms'] = 'N/A'     
-                    except Exception as e:
+                    except Exception:
                         property_data['Net Area (sqft)'] = 'N/A'
                         property_data['Number of Bedrooms'] = 'N/A'
                         property_data['Number of Bathrooms'] = 'N/A'
                     
                     # 8. URL - Extract from img.detail_page href attribute
                     try:
-                        # Find the image element
                         img_element = item.find_element(By.CSS_SELECTOR, 'img.desktop_myimage.detail_page')
-                        # Get the href attribute which contains the URL
                         property_data['URL'] = img_element.get_attribute('href')
-                    except Exception as e:
+                    except Exception:
                         property_data['URL'] = 'N/A'
                     
-                    # Add to list
                     properties_data.append(property_data)
                     
-                except Exception as e:
-                    # If we can't extract data from this property, skip it
+                except Exception:
                     continue
             
         except Exception as e:
@@ -361,19 +407,19 @@ class PropertyScraper:
     def save_to_csv(self, properties_data, filename):
         """
         Save extracted property data to a CSV file.
-        
-        Args:
-            properties_data: List of dictionaries containing property data
-            filename: The filename to save to
         """
         if not properties_data:
             st.warning("No data to save.")
-            return False
+            return None
         
         try:
             # Add .csv extension if not present
             if not filename.endswith('.csv'):
                 filename = filename + '.csv'
+            
+            # Use temp directory for cloud compatibility
+            temp_dir = tempfile.gettempdir()
+            filepath = os.path.join(temp_dir, filename)
             
             # Define headers
             headers = [
@@ -382,41 +428,33 @@ class PropertyScraper:
             ]
             
             # Write to CSV
-            with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+            with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=headers)
                 writer.writeheader()
                 for property_data in properties_data:
                     writer.writerow(property_data)
             
-            return filename
+            return filepath
             
         except Exception as e:
             st.error(f"Error saving to CSV: {e}")
             return None
     
-    def close(self):
+    def close_driver(self):
         """Close the WebDriver"""
-        if hasattr(self, 'driver'):
+        if self.driver:
             self.driver.quit()
-
-def list_csv_files():
-    """List all CSV files in current directory."""
-    csv_files = []
-    for file in os.listdir('.'):
-        if file.endswith('.csv'):
-            csv_files.append(file)
-    return csv_files
 
 def main():
     st.title("Hong Kong Rental Property Scraper")
     
     # Initialize session state
     if 'scraper' not in st.session_state:
-        st.session_state.scraper = None
+        st.session_state.scraper = PropertyScraper()
     if 'properties_data' not in st.session_state:
         st.session_state.properties_data = None
-    if 'search_completed' not in st.session_state:
-        st.session_state.search_completed = False
+    if 'driver_initialized' not in st.session_state:
+        st.session_state.driver_initialized = False
     
     # Property type mapping
     property_type_mapping = {
@@ -489,11 +527,15 @@ def main():
             st.warning("Please enter a district name.")
         else:
             try:
-                # Initialize scraper if not already done
-                if st.session_state.scraper is None:
+                # Initialize driver if not already done
+                if not st.session_state.driver_initialized:
                     with st.spinner("Initializing web scraper..."):
-                        st.session_state.scraper = PropertyScraper()
-                        st.success("Web scraper initialized successfully!")
+                        if st.session_state.scraper.setup_driver():
+                            st.session_state.driver_initialized = True
+                            st.success("Web scraper initialized successfully!")
+                        else:
+                            st.error("Failed to initialize web scraper. Please check the error messages above.")
+                            st.stop()
                 
                 scraper = st.session_state.scraper
                 
@@ -534,13 +576,14 @@ def main():
                     st.success(f"Found {property_count:,} properties matching your criteria.")
                     
                     # Extract data option
-                    if st.button("Extract Property Data"):
-                        with st.spinner("Extracting property data..."):
+                    extract_button = st.button("Extract Property Data")
+                    
+                    if extract_button:
+                        with st.spinner("Extracting property data... This may take a few minutes."):
                             properties_data = scraper.extract_all_property_data(district)
                         
                         if properties_data:
                             st.session_state.properties_data = properties_data
-                            st.session_state.search_completed = True
                             
                             # Display data in a table
                             st.subheader("Extracted Property Data")
@@ -550,37 +593,26 @@ def main():
                             # Save options
                             st.subheader("Save Options")
                             
-                            col1, col2 = st.columns(2)
+                            filename = st.text_input("Enter filename to save as (without .csv)", 
+                                                    value="properties")
                             
-                            with col1:
-                                filename = st.text_input("Enter filename to save as (without .csv)", 
-                                                        value="properties")
-                            
-                            with col2:
-                                if st.button("Save to CSV"):
-                                    if filename:
-                                        saved_file = scraper.save_to_csv(properties_data, filename)
-                                        if saved_file:
-                                            st.success(f"Data saved to {saved_file}")
-                                            
-                                            # Provide download button
-                                            with open(saved_file, 'r', encoding='utf-8') as f:
-                                                csv_data = f.read()
-                                            st.download_button(
-                                                label="Download CSV",
-                                                data=csv_data,
-                                                file_name=saved_file,
-                                                mime="text/csv"
-                                            )
-                                    else:
-                                        st.warning("Please enter a filename.")
-                            
-                            # Show existing CSV files
-                            csv_files = list_csv_files()
-                            if csv_files:
-                                st.subheader("Existing CSV Files")
-                                for file in csv_files:
-                                    st.text(file)
+                            if st.button("Save and Download CSV"):
+                                if filename:
+                                    saved_file = scraper.save_to_csv(properties_data, filename)
+                                    if saved_file:
+                                        st.success("Data saved temporarily!")
+                                        
+                                        # Provide download button
+                                        with open(saved_file, 'r', encoding='utf-8') as f:
+                                            csv_data = f.read()
+                                        st.download_button(
+                                            label="Download CSV",
+                                            data=csv_data,
+                                            file_name=filename + '.csv',
+                                            mime="text/csv"
+                                        )
+                                else:
+                                    st.warning("Please enter a filename.")
                         else:
                             st.warning("No property data could be extracted.")
                 else:
@@ -590,13 +622,13 @@ def main():
                 st.error(f"An error occurred: {e}")
     
     # Display previously extracted data if available
-    elif st.session_state.search_completed and st.session_state.properties_data:
-        st.subheader("Previously Extracted Property Data")
+    elif st.session_state.properties_data is not None:
+        st.subheader("Extracted Property Data")
         df = pd.DataFrame(st.session_state.properties_data)
         st.dataframe(df, use_container_width=True)
     
     # Instructions
-    if not st.session_state.search_completed and not search_button:
+    if not st.session_state.properties_data and not search_button:
         st.info("Use the filters in the sidebar to search for rental properties in Hong Kong.")
         
         with st.expander("How to use this app"):
@@ -608,7 +640,7 @@ def main():
             5. Click 'Search Properties' to begin
             6. After searching, click 'Extract Property Data' to scrape detailed information
             7. View the extracted data in the table
-            8. Save the data to a CSV file for later use
+            8. Save and download the data as a CSV file
             """)
 
 if __name__ == "__main__":
@@ -618,5 +650,5 @@ if __name__ == "__main__":
         st.error(f"Application error: {e}")
     finally:
         # Clean up WebDriver when the app is closed
-        if 'scraper' in st.session_state and st.session_state.scraper:
-            st.session_state.scraper.close()
+        if 'scraper' in st.session_state and hasattr(st.session_state.scraper, 'close_driver'):
+            st.session_state.scraper.close_driver()
