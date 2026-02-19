@@ -43,7 +43,7 @@ class PropertyScraper:
         """Initialise WebDriver"""
         self.driver = None
         self.wait = None
-        self.url = "https://www.squarefoot.com.hk/en/rent"
+        self.url = None
         
     def setup_driver(self):
         """Initialize the Chrome WebDriver with cloud-compatible options"""
