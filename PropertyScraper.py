@@ -117,8 +117,7 @@ class PropertyScraper:
             return 1
         except:
             return 1
-    
-def extract_all_property_data(self, district, total_properties):
+    def extract_all_property_data(self, district, total_properties):
     """
     Extract data from all property listings across all pages.
     
@@ -129,50 +128,50 @@ def extract_all_property_data(self, district, total_properties):
     all_properties_data = []
     current_page = 1
     
-    try:
-        total_pages = self.get_total_pages()
-        
-        # Show total properties instead of pages
-        st.info(f"Total properties to scrape: {total_properties:,}")
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        properties_scraped = 0
-        
-        while current_page <= total_pages:
-            # Extract properties from current page
-            page_properties = self.extract_property_data(district)
-            all_properties_data.extend(page_properties)
-            properties_scraped += len(page_properties)
+        try:
+            total_pages = self.get_total_pages()
             
-            # Update status with current count
-            status_text.text(f"Scraping properties... {properties_scraped:,} of {total_properties:,} properties scraped")
+            # Show total properties instead of pages
+            st.info(f"Total properties to scrape: {total_properties:,}")
             
-            # Update progress based on total properties
-            if total_properties > 0:
-                progress = properties_scraped / total_properties
-                progress_bar.progress(progress)
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            properties_scraped = 0
             
-            if current_page >= total_pages:
-                break
+            while current_page <= total_pages:
+                # Extract properties from current page
+                page_properties = self.extract_property_data(district)
+                all_properties_data.extend(page_properties)
+                properties_scraped += len(page_properties)
+                
+                # Update status with current count
+                status_text.text(f"Scraping properties... {properties_scraped:,} of {total_properties:,} properties scraped")
+                
+                # Update progress based on total properties
+                if total_properties > 0:
+                    progress = properties_scraped / total_properties
+                    progress_bar.progress(progress)
+                
+                if current_page >= total_pages:
+                    break
+                
+                if not self.go_to_next_page():
+                    st.warning(f"Could not go to page {current_page + 1}")
+                    break
+                
+                current_page += 1
             
-            if not self.go_to_next_page():
-                st.warning(f"Could not go to page {current_page + 1}")
-                break
+            # Final update
+            progress_bar.empty()
+            status_text.empty()
             
-            current_page += 1
+            # Show final count
+            st.success(f"Successfully scraped {properties_scraped:,} of {total_properties:,} properties")
+            
+        except Exception as e:
+            st.error(f"Error during extraction: {e}")
         
-        # Final update
-        progress_bar.empty()
-        status_text.empty()
-        
-        # Show final count
-        st.success(f"Successfully scraped {properties_scraped:,} of {total_properties:,} properties")
-        
-    except Exception as e:
-        st.error(f"Error during extraction: {e}")
-    
-    return all_properties_data
+        return all_properties_data
 
     def apply_generic_filter(self, filter_attr, choice, mapping, filter_name):
         """
