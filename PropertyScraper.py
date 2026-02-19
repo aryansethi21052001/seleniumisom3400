@@ -13,22 +13,22 @@ import pandas as pd
 from tempfile import NamedTemporaryFile
 
 class PropertyScraper:
-def __init__(self):
-        """Initialise WebDriver"""
-        try:
-            chrome_options = Options()
-            chrome_options.add_argument("--headless=new")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.binary_location = "/usr/bin/chromium"
-            self.service = Service("/usr/bin/chromedriver")
-            self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
-            self.wait = WebDriverWait(self.driver, 10)
-            self.url = "https://www.squarefoot.com.hk/en/rent" 
-            self.driver.get(self.url)
-        except Exception as e:
-            st.error(f"Error setting up WebDriver: {e}")
-            raise
+        def __init__(self):
+                """Initialise WebDriver"""
+                try:
+                    chrome_options = Options()
+                    chrome_options.add_argument("--headless=new")
+                    chrome_options.add_argument("--no-sandbox")
+                    chrome_options.add_argument("--disable-dev-shm-usage")
+                    chrome_options.binary_location = "/usr/bin/chromium"
+                    self.service = Service("/usr/bin/chromedriver")
+                    self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
+                    self.wait = WebDriverWait(self.driver, 10)
+                    self.url = "https://www.squarefoot.com.hk/en/rent" 
+                    self.driver.get(self.url)
+                except Exception as e:
+                    st.error(f"Error setting up WebDriver: {e}")
+                    raise
     
     def get_total_pages(self):
         """
