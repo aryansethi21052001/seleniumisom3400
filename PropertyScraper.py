@@ -764,7 +764,7 @@ def show_property_search():
 def main():
     st.set_page_config(page_title="Hong Kong Rental Property Scraper")
     
-    st.title("Hong Kong Rental Property Scraper", width="content", text_alignment="center")
+    st.header("**Hong Kong Rental Property Scraper**", text_alignment="center")
     
     # Create tabs
     tab1, tab2 = st.tabs(["Home", "Property Search"])
