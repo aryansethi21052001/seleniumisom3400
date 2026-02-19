@@ -118,47 +118,61 @@ class PropertyScraper:
         except:
             return 1
     
-    def extract_all_property_data(self, district):
-        """
-        Extract data from all property listings across all pages.
-        """
-        all_properties_data = []
-        current_page = 1
+def extract_all_property_data(self, district, total_properties):
+    """
+    Extract data from all property listings across all pages.
+    
+    Args:
+        district: The district to scrape
+        total_properties: Total number of properties found (from search results)
+    """
+    all_properties_data = []
+    current_page = 1
+    
+    try:
+        total_pages = self.get_total_pages()
         
-        try:
-            total_pages = self.get_total_pages()
-            total_properties = total_pages * 10
-            st.info(f"Total properties to scrape: {total_properties}")
+        # Show total properties instead of pages
+        st.info(f"Total properties to scrape: {total_properties:,}")
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        properties_scraped = 0
+        
+        while current_page <= total_pages:
+            # Extract properties from current page
+            page_properties = self.extract_property_data(district)
+            all_properties_data.extend(page_properties)
+            properties_scraped += len(page_properties)
             
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+            # Update status with current count
+            status_text.text(f"Scraping properties... {properties_scraped:,} of {total_properties:,} properties scraped")
             
-            while current_page <= total_pages:
-                status_text.text(f"Extracting properties...")
-                
-                page_properties = self.extract_property_data(district)
-                all_properties_data.extend(page_properties)
-                
-                # Update progress
-                progress = current_page / total_pages
+            # Update progress based on total properties
+            if total_properties > 0:
+                progress = properties_scraped / total_properties
                 progress_bar.progress(progress)
-                
-                if current_page >= total_pages:
-                    break
-                
-                if not self.go_to_next_page():
-                    st.warning(f"Could not go to page {current_page + 1}")
-                    break
-                
-                current_page += 1
             
-            progress_bar.empty()
-            status_text.empty()
+            if current_page >= total_pages:
+                break
             
-        except Exception as e:
-            st.error(f"Error during extraction: {e}")
+            if not self.go_to_next_page():
+                st.warning(f"Could not go to page {current_page + 1}")
+                break
+            
+            current_page += 1
         
-        return all_properties_data
+        # Final update
+        progress_bar.empty()
+        status_text.empty()
+        
+        # Show final count
+        st.success(f"Successfully scraped {properties_scraped:,} of {total_properties:,} properties")
+        
+    except Exception as e:
+        st.error(f"Error during extraction: {e}")
+    
+    return all_properties_data
 
     def apply_generic_filter(self, filter_attr, choice, mapping, filter_name):
         """
@@ -569,11 +583,12 @@ def main():
     if st.session_state.search_performed and not st.session_state.extract_clicked and st.session_state.property_count > 0:
         if st.button("Extract Property Data", key="extract_button"):
             with st.spinner("Extracting property data... This may take a few minutes..."):
-                # Make sure scraper is still alive
                 if st.session_state.scraper:
-                    st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(st.session_state.current_district)
+                    st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(
+                        st.session_state.current_district, 
+                        st.session_state.property_count
+                    )
                     st.session_state.extract_clicked = True
-                    # Don't use st.rerun() here - let the display update naturally
                 else:
                     st.error("Scraper connection lost. Please search again.")
     
