@@ -13,20 +13,16 @@ import pandas as pd
 from tempfile import NamedTemporaryFile
 
 class PropertyScraper:
-    def __init__(self):
+def __init__(self):
         """Initialise WebDriver"""
         try:
             chrome_options = Options()
             chrome_options.add_argument("--headless=new")
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
-            
-            # More flexible Chrome binary location
-            chrome_options.binary_location = "/usr/bin/chromium"  # Keep as is for your environment
-            
-            # Use webdriver-manager to handle ChromeDriver
-            service = Service(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            chrome_options.binary_location = "/usr/bin/chromium"
+            self.service = Service("/usr/bin/chromedriver")
+            self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
             self.wait = WebDriverWait(self.driver, 10)
             self.url = "https://www.squarefoot.com.hk/en/rent" 
             self.driver.get(self.url)
