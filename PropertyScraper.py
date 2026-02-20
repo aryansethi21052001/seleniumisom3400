@@ -247,7 +247,7 @@ class PropertyScraper:
             return 'N/A'
     
     def extract_property_data(self, district):
-        """Extract data from all property listings on the current page."""
+    """Extract data from all property listings on the current page."""
         properties_data = []
         
         try:
@@ -283,13 +283,7 @@ class PropertyScraper:
                         price_text = price_element.text.strip()
                         property_data[self.price_field] = self.extract_price_from_text(price_text)
                     except:
-                        # Try alternative selector
-                        try:
-                            price_element = item.find_element(By.CSS_SELECTOR, 'span.priceDesc')
-                            price_text = price_element.text.strip()
-                            property_data[self.price_field] = self.extract_price_from_text(price_text)
-                        except:
-                            pass
+                        pass
                     
                     # Extract monthly repayment (buy only)
                     if self.transaction_type == "buy":
@@ -314,10 +308,24 @@ class PropertyScraper:
                                 parts = text.split()
                                 if len(parts) > 0:
                                     property_data['Net Area (sqft)'] = parts[0]
+                                
+                                # Extract bedrooms - check if it's a number
                                 if len(parts) > 2:
-                                    property_data['Number of Bedrooms'] = parts[2]
+                                    bedroom_text = parts[2]
+                                    # Check if it's a number (including decimal points)
+                                    if re.match(r'^\d+(\.\d+)?$', bedroom_text):
+                                        property_data['Number of Bedrooms'] = bedroom_text
+                                    else:
+                                        property_data['Number of Bedrooms'] = 'N/A'
+                                
+                                # Extract bathrooms - check if it's a number
                                 if len(parts) > 3:
-                                    property_data['Number of Bathrooms'] = parts[3]
+                                    bathroom_text = parts[3]
+                                    # Check if it's a number (including decimal points)
+                                    if re.match(r'^\d+(\.\d+)?$', bathroom_text):
+                                        property_data['Number of Bathrooms'] = bathroom_text
+                                    else:
+                                        property_data['Number of Bathrooms'] = 'N/A'
                                 break
                     except:
                         pass
