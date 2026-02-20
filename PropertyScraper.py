@@ -110,7 +110,7 @@ class PropertyScraper:
                     # 2. NAME - Extract property name
                     try:
                         header_cat = item.find_element(By.CSS_SELECTOR, 'div.header.cat')
-                        property_data['Name'] = self.extract_property_name(header_cat, district)
+                        property_data['Name'] = self.extract_property_name(header_cat, district.title())
                     except:
                         property_data['Name'] = 'N/A'
                     
