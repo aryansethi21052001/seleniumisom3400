@@ -36,7 +36,7 @@ class PropertyScraper:
             else:  # buy
                 self.url = "https://www.squarefoot.com.hk/en/buy"
                 self.price_field = "Sale Price (in HKD)"
-                self.price_css_selector = 'span.priceDesc'  # More generic selector for sale price
+                self.price_css_selector = 'span.priceDesc '  # More generic selector for sale price
                 # No pattern needed as we'll extract using regex
             
             self.driver.get(self.url)
