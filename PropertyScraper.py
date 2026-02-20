@@ -105,7 +105,7 @@ class PropertyScraper:
                 
                 try:
                     # 1. DISTRICT - Use the user's search input
-                    property_data['District'] = district
+                    property_data['District'] = district.title()
                     
                     # 2. NAME - Extract property name
                     try:
@@ -451,7 +451,7 @@ class PropertyScraper:
             search_input = self.wait.until(EC.element_to_be_clickable((By.NAME, 'searchText_temp')))
             search_input.clear()
             time.sleep(0.5)
-            search_input.send_keys(district)
+            search_input.send_keys(district.title())
             
             search_button = self.wait.until(EC.element_to_be_clickable((By.ID, 'searchwords_btn')))
             search_button.click()
@@ -481,7 +481,7 @@ class PropertyScraper:
             return 0
             
         except Exception as e:
-            st.error(f"Error searching district '{district}': {e}")
+            st.error(f"Error searching district '{district.title()}': {e}")
             return 0
     
     def extract_property_name(self, header_element, district):
