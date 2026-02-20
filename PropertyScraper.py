@@ -50,14 +50,11 @@ class PropertyScraper:
             return 'N/A'
         
         try:
-            # Remove common prefixes
             cleaned = re.sub(r'(?:Lease|Sell|HKD\$)\s*', '', price_text).strip()
             
             if self.transaction_type == "rent":
-                # Remove commas and return
                 return cleaned.replace(',', '') if cleaned else 'N/A'
             else:
-                # Extract just the number for buy properties
                 number_match = re.search(r'([\d.]+)', cleaned)
                 return number_match.group(1) if number_match else 'N/A'
         except Exception:
@@ -164,10 +161,7 @@ class PropertyScraper:
 
     def apply_property_type_filter(self, property_type):
         """Apply property type filter on website."""
-        type_mapping = {
-            "All": "0", "Apartment": "5", "Carpark": "6", 
-            "Office": "7", "Shop": "8"
-        }
+        type_mapping = {"All": "0", "Apartment": "5", "Carpark": "6", "Office": "7", "Shop": "8"}
         return self.apply_generic_filter("mainType", property_type, type_mapping, "Property Type")
 
     def apply_budget_filter(self, budget_choice):
@@ -312,7 +306,6 @@ class PropertyScraper:
                                 # Extract bedrooms - check if it's a number
                                 if len(parts) > 2:
                                     bedroom_text = parts[2]
-                                    # Check if it's a number (including decimal points)
                                     if re.match(r'^\d+(\.\d+)?$', bedroom_text):
                                         property_data['Number of Bedrooms'] = bedroom_text
                                     else:
@@ -321,7 +314,6 @@ class PropertyScraper:
                                 # Extract bathrooms - check if it's a number
                                 if len(parts) > 3:
                                     bathroom_text = parts[3]
-                                    # Check if it's a number (including decimal points)
                                     if re.match(r'^\d+(\.\d+)?$', bathroom_text):
                                         property_data['Number of Bathrooms'] = bathroom_text
                                     else:
@@ -409,14 +401,14 @@ def show_home_page():
     - Click the **"Search Properties"** button
     
     #### Step 5: Review Search Results
-    - The app will show you how many properties were found
+    The app will show you how many properties were found.
     
     #### Step 6: Extract Data
     - Click **"Extract Property Data"** to start scraping
     - A progress bar will show real-time progress
     
     #### Step 7: Download Your Data
-    - Once extraction is complete, click the **"Download CSV"** button
+    Once extraction is complete, click the **"Download CSV"** button.
     
     ---
     
@@ -431,10 +423,6 @@ def show_home_page():
     - **Number of Bedrooms**
     - **Number of Bathrooms**
     - **Property URL** - Direct link to the listing
-    
-    ---
-    
-    *Happy Property Hunting!*
     """)
 
 def show_property_search():
@@ -467,15 +455,14 @@ def show_property_search():
         st.session_state.transaction_type = transaction_type
         st.session_state.update(search_performed=False, properties_data=None, extract_clicked=False)
     
-    # Property Type Selection (outside the form for dynamic updates)
+    # Property Type Selection
     st.subheader("Property Type")
     property_type = st.selectbox(
         "Select property type:",
         ["All", "Apartment", "Carpark", "Office", "Shop"],
         key="property_type_select"
     )
-    
-    # Store property type in session state
+
     st.session_state.property_type = property_type
     
     # Check if Carpark is selected to determine if we should disable other filters
@@ -523,17 +510,10 @@ def show_property_search():
         
         # Second row for rooms (using full width or another column)
         if is_carpark:
-            rooms = st.selectbox(
-                "Number of Rooms",
-                ["No preference", "Studio", "1", "2", "3", "4", "5+"],
-                disabled=True,
-                help="Room filter is not available for Carpark properties"
-            )
+            rooms = st.selectbox("Number of Rooms", ["No preference", "Studio", "1", "2", "3", "4", "5+"],
+                disabled=True, help="Room filter is not available for Carpark properties")
         else:
-            rooms = st.selectbox(
-                "Number of Rooms",
-                ["No preference", "Studio", "1", "2", "3", "4", "5+"]
-            )
+            rooms = st.selectbox("Number of Rooms", ["No preference", "Studio", "1", "2", "3", "4", "5+"])
         
         district = st.text_input("District Name", help="e.g., Central, Causeway Bay, Tsim Sha Tsui")
         search_button = st.form_submit_button("Search Properties", type="primary", use_container_width=True)
@@ -553,7 +533,6 @@ def show_property_search():
                 scraper.apply_budget_filter(budget)
                 
                 # Only apply area and room filters if property type is not Carpark
-                # Even if the user somehow manages to select values (though they're disabled), we still skip them
                 if not is_carpark:
                     scraper.apply_area_filter(area)
                     scraper.apply_room_filter(rooms)
@@ -561,7 +540,7 @@ def show_property_search():
                 property_count = scraper.search_district(district)
                 
                 if property_count > 0:
-                    st.success(f"Found {property_count:,} properties")
+                    st.success(f"Found {property_count:,} properties.")
                     st.session_state.update(
                         scraper=scraper, property_count=property_count,
                         current_district=district, search_performed=True,
@@ -633,11 +612,10 @@ def show_property_search():
                         use_container_width=True
                     )
             
-            # Statistics
+            # Calculate statistics
             st.header("Statistics")
             price_field = "Monthly Rental Price (in HKD)" if st.session_state.transaction_type == "rent" else "Sale Price (in HKD Millions)"
             
-            # Calculate statistics
             prices = []
             for p in st.session_state.properties_data:
                 price_str = p.get(price_field, 'N/A')
@@ -687,7 +665,6 @@ def main():
     with tab2:
         show_property_search()
     
-    # Cleanup
     def cleanup():
         if st.session_state.get('scraper'):
             st.session_state.scraper.close()
