@@ -182,7 +182,7 @@ class PropertyScraper:
             
             while current_page <= total_pages:
                 # Extract properties from current page
-                page_properties = self.extract_property_data(district)
+                page_properties = self.extract_property_data(district.title())
                 all_properties_data.extend(page_properties)
                 properties_scraped += len(page_properties)
                 
@@ -324,7 +324,7 @@ class PropertyScraper:
             search_input = self.wait.until(EC.element_to_be_clickable((By.NAME, 'searchText_temp')))
             search_input.clear()
             time.sleep(0.5)
-            search_input.send_keys(district)
+            search_input.send_keys(district.title())
             
             search_button = self.wait.until(EC.element_to_be_clickable((By.ID, 'searchwords_btn')))
             search_button.click()
@@ -354,7 +354,7 @@ class PropertyScraper:
             return 0
             
         except Exception as e:
-            st.error(f"Error searching district '{district}': {e}")
+            st.error(f"Error searching district '{district.title()}': {e}")
             return 0
     
     def extract_property_name(self, header_element, district):
@@ -401,12 +401,12 @@ class PropertyScraper:
                 
                 try:
                     # 1. DISTRICT - Use the user's search input
-                    property_data['District'] = district
+                    property_data['District'] = district.title()
                     
                     # 2. NAME - Extract property name
                     try:
                         header_cat = item.find_element(By.CSS_SELECTOR, 'div.header.cat')
-                        property_data['Name'] = self.extract_property_name(header_cat, district)
+                        property_data['Name'] = self.extract_property_name(header_cat, district.title())
                     except:
                         property_data['Name'] = 'N/A'
                     
