@@ -64,7 +64,7 @@ class PropertyScraper:
             return 'N/A'
     
     def get_total_pages(self):
-        """Get the total number of pages from pagination."""
+        """Get the total number of pages."""
         try:
             time.sleep(2)
             pagination = self.driver.find_elements(By.CSS_SELECTOR, 'div.ui.borderless.menu.pagination')
@@ -233,7 +233,7 @@ class PropertyScraper:
             return 0
     
     def extract_property_name(self, header_element, district):
-        """Extract property name from header.cat element."""
+        """Extract individual property name."""
         try:
             full_text = header_element.text.strip()
             lines = full_text.split('\n')
@@ -339,7 +339,7 @@ class PropertyScraper:
         return properties_data
     
     def save_to_csv(self, properties_data):
-        """Save extracted property data to a CSV string and return as bytes."""
+        """Save extracted property data to a CSV file."""
         if not properties_data:
             return None
         
@@ -397,7 +397,7 @@ def show_home_page():
     - **Number of Rooms**: Select bedroom requirements
     
     #### Step 4: Enter District
-    - Type the Hong Kong district you want to search
+    - Type the relevant district you want to search for
     - Click the **"Search Properties"** button
     
     #### Step 5: Review Search Results
@@ -418,10 +418,10 @@ def show_home_page():
     - **Property Name** - Building/project name
     - **Street Address** - Full street address
     - **Price** - Monthly rent or sale price in HKD
+    - **Monthly Repayment** (for buy properties only)
     - **Net Area** - Size in square feet
     - **Number of Bedrooms**
     - **Number of Bathrooms**
-    - **Monthly Repayment** (for buy properties only)
     - **Property URL** - Direct link to the listing
     
     ---
@@ -574,7 +574,6 @@ def show_property_search():
                     "Number of Bathrooms", "URL"
                 ]
             
-            # Reorder columns if they exist in the dataframe
             existing_columns = [col for col in column_order if col in df.columns]
             df = df[existing_columns]
             
@@ -642,7 +641,6 @@ def show_property_search():
 def main():
     st.set_page_config(page_title="Hong Kong Property Scraper")
     st.header("**Hong Kong Property Scraper**", text_alignment="center")
-    st.caption("Search both rental and sale properties")
     
     tab1, tab2 = st.tabs(["Home", "Property Search"])
     with tab1:
