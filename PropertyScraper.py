@@ -474,7 +474,7 @@ def show_property_search():
     is_carpark = (property_type == "Carpark")
     
     if is_carpark:
-        st.info("ℹ️ Note: Area and Room filters are not applicable for Carpark properties")
+        st.info("Note: Area and Room filters are not applicable for Carpark")
     
     # Search form
     with st.form("search_form"):
