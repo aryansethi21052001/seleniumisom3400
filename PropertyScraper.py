@@ -560,6 +560,24 @@ def show_property_search():
         if len(st.session_state.properties_data) > 0:
             st.header("Search Results")
             df = pd.DataFrame(st.session_state.properties_data)
+            
+            # Define column order based on transaction type
+            if st.session_state.transaction_type == "rent":
+                column_order = [
+                    "District", "Name", "Street Address", "Monthly Rental Price (in HKD)",
+                    "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
+                ]
+            else:  # buy
+                column_order = [
+                    "District", "Name", "Street Address", "Sale Price (in HKD Millions)",
+                    "Monthly Repayment (HKD)", "Net Area (sqft)", "Number of Bedrooms",
+                    "Number of Bathrooms", "URL"
+                ]
+            
+            # Reorder columns if they exist in the dataframe
+            existing_columns = [col for col in column_order if col in df.columns]
+            df = df[existing_columns]
+            
             st.dataframe(df, use_container_width=True)
             
             # Download button
@@ -608,7 +626,7 @@ def show_property_search():
                     if st.session_state.transaction_type == "rent":
                         st.metric("Average Monthly Rent (HKD)", f"{sum(prices)//len(prices):,}")
                     else:
-                        st.metric("Average Sale Price (M HKD)", f"{sum(prices)/len(prices):.1f}M")
+                        st.metric("Average Sale Price (HKD)", f"{sum(prices)/len(prices):.1f}M")
                 else:
                     st.metric("Average Price", "N/A")
             with col3:
