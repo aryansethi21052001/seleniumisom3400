@@ -640,7 +640,7 @@ def show_property_search():
 
 def main():
     st.set_page_config(page_title="Hong Kong Property Scraper")
-    st.header("**Hong Kong Property Scraper**", text_alignment="center")
+    st.title("**Hong Kong Property Scraper**", text_alignment="center")
     
     tab1, tab2 = st.tabs(["Home", "Property Search"])
     with tab1:
