@@ -36,13 +36,167 @@ class PropertyScraper:
             else:  # buy
                 self.url = "https://www.squarefoot.com.hk/en/buy"
                 self.price_field = "Sale Price (in HKD)"
-                self.price_css_selector = 'span.priceDesc.saleDesc'  # Adjust if different
-                self.price_text_pattern = "Sale HKD$"
+                self.price_css_selector = 'span.priceDesc'  # More generic selector for sale price
+                # No pattern needed as we'll extract using regex
             
             self.driver.get(self.url)
         except Exception as e:
             st.error(f"Error setting up WebDriver: {e}")
             raise
+
+    def extract_price_from_text(self, price_text):
+        """
+        Extract numeric price from text like "Sell HKD$12.8 Millions" or "Lease HKD$50,000"
+        Returns the price as a string with commas removed.
+        """
+        if not price_text or price_text == 'N/A':
+            return 'N/A'
+        
+        try:
+            if self.transaction_type == "rent":
+                # For rent: "Lease HKD$50,000" -> remove prefix and commas
+                return price_text.replace('Lease HKD$', '').replace(',', '').strip()
+            else:
+                # For buy: "Sell HKD$12.8 Millions" -> extract number and convert
+                # Remove "Sell HKD$" prefix
+                price_text = price_text.replace('Sell HKD$', '').strip()
+                
+                # Check if it's in "Millions" format
+                if 'Millions' in price_text:
+                    # Extract the number before "Millions"
+                    number_part = price_text.replace('Millions', '').strip()
+                    try:
+                        # Convert to float and multiply by 1,000,000
+                        price_value = float(number_part) * 1_000_000
+                        # Return as integer string without commas
+                        return str(int(price_value))
+                    except ValueError:
+                        pass
+                
+                # If not in millions format or conversion failed, try direct number
+                # Remove any remaining text and commas
+                import re
+                # Extract just the number (including decimals)
+                numbers = re.findall(r'[\d,]+\.?\d*', price_text)
+                if numbers:
+                    # Remove commas and return
+                    return numbers[0].replace(',', '')
+                
+                return 'N/A'
+        except Exception as e:
+            return 'N/A'
+
+    def extract_property_data(self, district):
+        """
+        Extract data from all property listings on the current page.
+        """
+        properties_data = []
+        
+        try:
+            # Wait for property listings to load
+            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.item.property_item')))
+            time.sleep(2)
+            
+            # Find all property listings
+            property_items = self.driver.find_elements(By.CSS_SELECTOR, 'div.item.property_item')
+            
+            for item in property_items:
+                property_data = {}
+                
+                try:
+                    # 1. DISTRICT - Use the user's search input
+                    property_data['District'] = district
+                    
+                    # 2. NAME - Extract property name
+                    try:
+                        header_cat = item.find_element(By.CSS_SELECTOR, 'div.header.cat')
+                        property_data['Name'] = self.extract_property_name(header_cat, district)
+                    except:
+                        property_data['Name'] = 'N/A'
+                    
+                    # 3. STREET ADDRESS - Extract property address
+                    try:
+                        # Find all div.meta elements in this property item
+                        meta_divs = item.find_elements(By.CSS_SELECTOR, 'div.meta')
+                        if meta_divs:
+                            # The first meta div contains the street address
+                            property_data['Street Address'] = meta_divs[0].text.strip()
+                        else:
+                            property_data['Street Address'] = 'N/A'
+                    except:
+                        property_data['Street Address'] = 'N/A'
+                    
+                    # 4. PRICE - Extract property price based on transaction type
+                    try:
+                        # Find price element - different selectors for rent vs buy
+                        if self.transaction_type == "rent":
+                            price_element = item.find_element(By.CSS_SELECTOR, 'span.priceDesc.rentDesc')
+                        else:
+                            # For buy, find the span with priceDesc class
+                            price_element = item.find_element(By.CSS_SELECTOR, 'span.priceDesc')
+                        
+                        price_text = price_element.text.strip()
+                        property_data[self.price_field] = self.extract_price_from_text(price_text)
+                    except:
+                        property_data[self.price_field] = 'N/A'
+        
+                    # 5, 6, 7. Extract Net Area, Bedrooms, and Bathrooms
+                    try:
+                        # Find the header with ft²
+                        header_divs = item.find_elements(By.CSS_SELECTOR, 'div.header')
+                        
+                        for header in header_divs:
+                            text = header.text.strip()
+                            
+                            if 'ft²' in text:
+                                # Split the text by whitespace
+                                parts = text.split()
+                                # 1. Net Area (first number before ft²)
+                                if len(parts) > 0:
+                                    property_data['Net Area (sqft)'] = parts[0]
+                                
+                                # 2. Bedrooms (third element, index 2)
+                                if len(parts) > 2:
+                                    property_data['Number of Bedrooms'] = parts[2]
+                                
+                                # 3. Bathrooms (fourth element, index 3)
+                                if len(parts) > 3:
+                                    property_data['Number of Bathrooms'] = parts[3]
+                                
+                                break
+                        
+                        # Set defaults if not found
+                        if 'Net Area (sqft)' not in property_data:
+                            property_data['Net Area (sqft)'] = 'N/A'
+                        if 'Number of Bedrooms' not in property_data:
+                            property_data['Number of Bedrooms'] = 'N/A'
+                        if 'Number of Bathrooms' not in property_data:
+                            property_data['Number of Bathrooms'] = 'N/A'     
+                    except:
+                        property_data['Net Area (sqft)'] = 'N/A'
+                        property_data['Number of Bedrooms'] = 'N/A'
+                        property_data['Number of Bathrooms'] = 'N/A'
+                    
+                    # 8. URL - Extract from img.detail_page href attribute
+                    try:
+                        # Find the image element
+                        img_element = item.find_element(By.CSS_SELECTOR, 'img.desktop_myimage.detail_page')
+                        # Get the href attribute which contains the URL
+                        property_data['URL'] = img_element.get_attribute('href')
+                    except:
+                        property_data['URL'] = 'N/A'
+                    
+                    # Add to list
+                    properties_data.append(property_data)
+                    
+                except Exception as e:
+                    # If we can't extract data from this property, skip it
+                    continue
+            
+        except Exception as e:
+            st.error(f"Error extracting property data: {e}")
+        
+        return properties_data
     
     def get_total_pages(self):
         """
