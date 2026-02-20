@@ -374,7 +374,7 @@ class PropertyScraper:
 def show_home_page():
     """Display the home page with instructions"""
     st.markdown("""
-    ### Welcome to the *Hong Kong Property Scraper!*
+    ## Welcome to the *Hong Kong Property Scraper!*
     
     This tool helps you search and extract property data in Hong Kong for both **rental** and **sale** properties *(data retrieved from SquareFoot.com.hk)*. 
     Get started by navigating to the **Property Search** tab above.
