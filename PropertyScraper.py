@@ -14,8 +14,8 @@ from tempfile import NamedTemporaryFile
 import io
 
 class PropertyScraper:
-    def __init__(self):
-        """Initialise WebDriver"""
+    def __init__(self, transaction_type="rent"):
+        """Initialise WebDriver with transaction type (rent or buy)"""
         try:
             chrome_options = Options()
             chrome_options.add_argument("--headless=new")
@@ -25,7 +25,20 @@ class PropertyScraper:
             self.service = Service("/usr/bin/chromedriver")
             self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
             self.wait = WebDriverWait(self.driver, 10)
-            self.url = "https://www.squarefoot.com.hk/en/rent" 
+            
+            # Set URL based on transaction type
+            self.transaction_type = transaction_type
+            if transaction_type == "rent":
+                self.url = "https://www.squarefoot.com.hk/en/rent"
+                self.price_field = "Monthly Rental Price (in HKD)"
+                self.price_css_selector = 'span.priceDesc.rentDesc'
+                self.price_text_pattern = "Lease HKD$"
+            else:  # buy
+                self.url = "https://www.squarefoot.com.hk/en/buy"
+                self.price_field = "Sale Price (in HKD)"
+                self.price_css_selector = 'span.priceDesc.saleDesc'  # Adjust if different
+                self.price_text_pattern = "Sale HKD$"
+            
             self.driver.get(self.url)
         except Exception as e:
             st.error(f"Error setting up WebDriver: {e}")
@@ -226,18 +239,30 @@ class PropertyScraper:
         return self.apply_generic_filter("mainType", property_type, type_mapping, "Property Type")
 
     def apply_budget_filter(self, budget_choice):
-        """Apply budget filter on website for RENTING properties only."""
-        budget_mapping = {
-            "No preference": "0", 
-            "Below 10,000": "1", 
-            "10,000 - 20,000": "2", 
-            "20,000 - 40,000": "3", 
-            "40,000 - 60,000": "4", 
-            "60,000 - 80,000": "5", 
-            "Above 80,000": "6"
-        }
+        """Apply budget filter based on transaction type."""
+        if self.transaction_type == "rent":
+            budget_mapping = {
+                "No preference": "0", 
+                "Below 10,000": "1", 
+                "10,000 - 20,000": "2", 
+                "20,000 - 40,000": "3", 
+                "40,000 - 60,000": "4", 
+                "60,000 - 80,000": "5", 
+                "Above 80,000": "6"
+            }
+        else:  # buy
+            budget_mapping = {
+                "No preference": "0",
+                "Below 10M": "1",
+                "10M - 20M": "2",
+                "20M - 40M": "3",
+                "40M - 70M": "4",
+                "70M - 100M": "5",
+                "Above 100M": "6"
+            }
         
-        return self.apply_generic_filter("price", budget_choice, budget_mapping, "Monthly Rent Budget")
+        return self.apply_generic_filter("price", budget_choice, budget_mapping, 
+                                        "Budget" if self.transaction_type == "rent" else "Price")
 
     def apply_area_filter(self, area_choice):
         """Apply area filter on website."""
@@ -282,14 +307,23 @@ class PropertyScraper:
             results_element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[style*="float: left"]')))
             results_text = results_element.text.strip()
             
-            if "results of property for lease" in results_text:
-                # Extract just the number
-                num_str = results_text.split()[0].replace(',', '')
-                try:
-                    property_count = int(num_str)
-                    return property_count
-                except ValueError:
-                    return 0
+            # Check for appropriate result text based on transaction type
+            if self.transaction_type == "rent":
+                if "results of property for lease" in results_text:
+                    num_str = results_text.split()[0].replace(',', '')
+                    try:
+                        property_count = int(num_str)
+                        return property_count
+                    except ValueError:
+                        return 0
+            else:  # buy
+                if "results of property for sale" in results_text:
+                    num_str = results_text.split()[0].replace(',', '')
+                    try:
+                        property_count = int(num_str)
+                        return property_count
+                    except ValueError:
+                        return 0
             return 0
             
         except Exception as e:
@@ -361,14 +395,14 @@ class PropertyScraper:
                     except:
                         property_data['Street Address'] = 'N/A'
                     
-                    # 4. RENTAL PRICE - Extract property rental prices
+                    # 4. PRICE - Extract property price based on transaction type
                     try:
-                        price_element = item.find_element(By.CSS_SELECTOR, 'span.priceDesc.rentDesc')
+                        price_element = item.find_element(By.CSS_SELECTOR, self.price_css_selector)
                         price_text = price_element.text.strip()
-                        # Remove "Lease HKD$" and keep just the number
-                        property_data['Monthly Rental Price (in HKD)'] = price_text.replace('Lease HKD$', '').strip()   
+                        # Remove the prefix and keep just the number
+                        property_data[self.price_field] = price_text.replace(self.price_text_pattern, '').strip()   
                     except:
-                        property_data['Monthly Rental Price (in HKD)'] = 'N/A'
+                        property_data[self.price_field] = 'N/A'
         
                     # 5, 6, 7. Extract Net Area, Bedrooms, and Bathrooms
                     try:
@@ -436,11 +470,17 @@ class PropertyScraper:
             return None
         
         try:
-            # Define headers
-            headers = [
-                "District", "Name", "Street Address", "Monthly Rental Price (in HKD)", 
-                "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
-            ]
+            # Define headers dynamically based on transaction type
+            if self.transaction_type == "rent":
+                headers = [
+                    "District", "Name", "Street Address", "Monthly Rental Price (in HKD)", 
+                    "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
+                ]
+            else:  # buy
+                headers = [
+                    "District", "Name", "Street Address", "Sale Price (in HKD)", 
+                    "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
+                ]
             
             # Create a string buffer to write CSV data
             output = io.StringIO()
@@ -467,9 +507,9 @@ class PropertyScraper:
 def show_home_page():
     """Display the home page with instructions"""
     st.markdown("""
-    #### Welcome to the *Hong Kong Rental Property Scraper!*
+    #### Welcome to the *Hong Kong Property Scraper!*
     
-    This tool helps you search and extract rental property data in Hong Kong *(data retrieved from SquareFoot.com.hk)*. 
+    This tool helps you search and extract property data in Hong Kong for both **rental** and **sale** properties *(data retrieved from SquareFoot.com.hk)*. 
     Get started by navigating to the **Property Search** tab above.
     
     ---
@@ -479,27 +519,30 @@ def show_home_page():
     #### Step 1: Navigate to Property Search
     Click on the **"Property Search"** tab at the top of the page.
     
-    #### Step 2: Apply Filters (Optional)
+    #### Step 2: Select Transaction Type
+    Choose between **Rent** or **Buy** properties.
+    
+    #### Step 3: Apply Filters (Optional)
     Use the filters in the search form to narrow down your search:
     - **Property Type**: Select from All, Apartment, Carpark, Office, or Shop
-    - **Monthly Budget**: Choose your preferred rental price range
+    - **Budget/Price Range**: Choose your preferred price range (options change based on transaction type)
     - **Saleable Area**: Filter by property size
     - **Number of Rooms**: Select bedroom requirements
     
-    #### Step 3: Enter District
+    #### Step 4: Enter District
     - Type the Hong Kong district you want to search (e.g., "Central", "Causeway Bay", "Tsim Sha Tsui")
     - Click the **"Search Properties"** button
     
-    #### Step 4: Review Search Results
+    #### Step 5: Review Search Results
     - The app will show you how many properties were found
     - If no properties match your criteria, try broadening your filters
     
-    #### Step 5: Extract Data
+    #### Step 6: Extract Data
     - Click **"Extract Property Data"** to start scraping
     - A progress bar will show real-time progress
     - Extraction time varies based on the number of properties
     
-    #### Step 6: Download Your Data
+    #### Step 7: Download Your Data
     - Once extraction is complete, you'll see a table with all property details
     - Click the **"Download CSV"** button to save the data
     
@@ -512,7 +555,7 @@ def show_home_page():
     1. **District** - Your searched location
     2. **Property Name** - Building/project name
     3. **Street Address** - Full street address
-    4. **Monthly Rental Price** - In HKD
+    4. **Price** - Monthly rent (for rentals) or sale price (for purchases) in HKD
     5. **Net Area** - Size in square feet
     6. **Number of Bedrooms**
     7. **Number of Bathrooms**
@@ -559,10 +602,20 @@ def show_property_search():
         st.session_state.property_count = 0
     if 'is_extracting' not in st.session_state:
         st.session_state.is_extracting = False
+    if 'transaction_type' not in st.session_state:
+        st.session_state.transaction_type = "rent"
     
     # Create a form for search filters
     with st.form("search_form"):
         st.subheader("Search Filters")
+        
+        # Transaction Type Selection
+        transaction_type = st.radio(
+            "Transaction Type",
+            ["Rent", "Buy"],
+            horizontal=True,
+            key="transaction_type_radio"
+        ).lower()
         
         col1, col2 = st.columns(2)
         
@@ -574,12 +627,25 @@ def show_property_search():
                 key="property_type"
             )
             
-            # Budget Selection
+            # Budget/Price Selection based on transaction type
+            if transaction_type == "rent":
+                budget_options = [
+                    "No preference", "Below 10,000", "10,000 - 20,000", 
+                    "20,000 - 40,000", "40,000 - 60,000", "60,000 - 80,000", 
+                    "Above 80,000"
+                ]
+                budget_label = "Monthly Budget (HKD)"
+            else:  # buy
+                budget_options = [
+                    "No preference", "Below 10M", "10M - 20M", 
+                    "20M - 40M", "40M - 70M", "70M - 100M", 
+                    "Above 100M"
+                ]
+                budget_label = "Price Range (HKD)"
+            
             budget = st.selectbox(
-                "Monthly Budget (HKD)",
-                ["No preference", "Below 10,000", "10,000 - 20,000", 
-                 "20,000 - 40,000", "40,000 - 60,000", "60,000 - 80,000", 
-                 "Above 80,000"],
+                budget_label,
+                budget_options,
                 key="budget"
             )
         
@@ -622,7 +688,11 @@ def show_property_search():
                 st.session_state.scraper = None
             
             try:
-                st.session_state.scraper = PropertyScraper()
+                # Update transaction type in session state
+                st.session_state.transaction_type = transaction_type
+                
+                # Initialize scraper with transaction type
+                st.session_state.scraper = PropertyScraper(transaction_type)
                 
                 # Apply filters
                 st.session_state.scraper.apply_property_type_filter(property_type)
@@ -699,8 +769,9 @@ def show_property_search():
                 csv_bytes = st.session_state.scraper.save_to_csv(st.session_state.properties_data)
                 
                 if csv_bytes:
-                    # Create filename
-                    filename = f"property_data_{st.session_state.current_district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                    # Create filename with transaction type
+                    transaction_prefix = "rental" if st.session_state.transaction_type == "rent" else "sale"
+                    filename = f"{transaction_prefix}_property_data_{st.session_state.current_district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
                     
                     # Single download button that directly downloads the CSV
                     st.download_button(
@@ -721,8 +792,10 @@ def show_property_search():
             
             # Calculate average price (excluding 'N/A' values)
             prices = []
+            price_field = "Monthly Rental Price (in HKD)" if st.session_state.transaction_type == "rent" else "Sale Price (in HKD)"
+            
             for p in st.session_state.properties_data:
-                price_str = p.get('Monthly Rental Price (in HKD)', 'N/A')
+                price_str = p.get(price_field, 'N/A')
                 if price_str != 'N/A':
                     try:
                         # Remove commas and convert to int
@@ -734,9 +807,17 @@ def show_property_search():
             with col2:
                 if prices:
                     avg_price = sum(prices) // len(prices)
-                    st.metric("Average Price (HKD)", f"{avg_price:,}")
+                    # Format price differently for rent vs buy
+                    if st.session_state.transaction_type == "rent":
+                        st.metric("Average Monthly Rent (HKD)", f"{avg_price:,}")
+                    else:
+                        # Convert to millions for sale properties
+                        if avg_price >= 1_000_000:
+                            st.metric("Average Sale Price (HKD)", f"{avg_price/1_000_000:.1f}M")
+                        else:
+                            st.metric("Average Sale Price (HKD)", f"{avg_price:,}")
                 else:
-                    st.metric("Average Price (HKD)", "N/A")
+                    st.metric("Average Price", "N/A")
             
             # Calculate average area (excluding 'N/A' values)
             areas = []
@@ -762,9 +843,10 @@ def show_property_search():
         st.info("No property data could be extracted.")
 
 def main():
-    st.set_page_config(page_title="Hong Kong Rental Property Scraper")
+    st.set_page_config(page_title="Hong Kong Property Scraper")
     
-    st.header("**Hong Kong Rental Property Scraper**", text_alignment="center")
+    st.header("**Hong Kong Property Scraper**", text_alignment="center")
+    st.caption("Search both rental and sale properties")
     
     # Create tabs
     tab1, tab2 = st.tabs(["Home", "Property Search"])
