@@ -34,11 +34,11 @@ class PropertyScraper:
                 self.price_css_selector = 'span.priceDesc.rentDesc'
             else:  # buy
                 self.url = "https://www.squarefoot.com.hk/en/buy"
-                self.price_field = "Sale Price (in HKD)"
-                self.price_css_selector = 'span.priceDesc'  # Remove the space, just use the class name
+                self.price_field = "Sale Price (in HKD Millions)"  # Updated header
+                self.price_css_selector = 'span.priceDesc'
             
             self.driver.get(self.url)
-            time.sleep(2)  # Give page time to load
+            time.sleep(2)
         except Exception as e:
             st.error(f"Error setting up WebDriver: {e}")
             raise
@@ -46,7 +46,7 @@ class PropertyScraper:
     def extract_price_from_text(self, price_text):
         """
         Extract numeric price from text like "Sell HKD$12.8 Millions" or "Lease HKD$50,000"
-        Returns the price as a string with commas removed.
+        Returns the price as a string in the original format (without converting to full number).
         """
         if not price_text or price_text == 'N/A':
             return 'N/A'
@@ -57,32 +57,15 @@ class PropertyScraper:
                 cleaned = price_text.replace('Lease HKD$', '').replace('Lease', '').replace('HKD$', '').replace(',', '').strip()
                 return cleaned if cleaned else 'N/A'
             else:
-                # For buy: "Sell HKD$12.8 Millions" -> extract number and convert
-                # Remove "Sell HKD$" prefix and any other text
+                # For buy: "Sell HKD$12.8 Millions" -> extract just the number part
+                # Remove "Sell HKD$" prefix
                 cleaned = price_text.replace('Sell HKD$', '').replace('Sell', '').replace('HKD$', '').strip()
                 
-                # Check if it's in "Millions" format
-                if 'Million' in cleaned:
-                    # Extract the number before "Million(s)"
-                    import re
-                    number_match = re.search(r'([\d.]+)', cleaned)
-                    if number_match:
-                        number_part = number_match.group(1)
-                        try:
-                            # Convert to float and multiply by 1,000,000
-                            price_value = float(number_part) * 1_000_000
-                            # Return as integer string without commas
-                            return str(int(price_value))
-                        except ValueError:
-                            pass
-                
-                # If not in millions format or conversion failed, try direct number extraction
+                # Extract just the number (e.g., "12.8" from "12.8 Millions")
                 import re
-                # Extract just the number (including decimals and commas)
-                numbers = re.findall(r'[\d,]+\.?\d*', cleaned)
-                if numbers:
-                    # Remove commas and return
-                    return numbers[0].replace(',', '')
+                number_match = re.search(r'([\d.]+)', cleaned)
+                if number_match:
+                    return number_match.group(1)
                 
                 return 'N/A'
         except Exception as e:
@@ -515,41 +498,44 @@ class PropertyScraper:
         return properties_data
     
     def save_to_csv(self, properties_data):
-        """
-        Save extracted property data to a CSV string and return as bytes.
-        """
-        if not properties_data:
-            return None
-        
-        try:
-            # Define headers dynamically based on transaction type
-            if self.transaction_type == "rent":
-                headers = [
-                    "District", "Name", "Street Address", "Monthly Rental Price (in HKD)", 
-                    "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
-                ]
-            else:  # buy
-                headers = [
-                    "District", "Name", "Street Address", "Sale Price (in HKD)", 
-                    "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
-                ]
+            """
+            Save extracted property data to a CSV string and return as bytes.
+            """
+            if not properties_data:
+                return None
             
-            # Create a string buffer to write CSV data
-            output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=headers)
-            writer.writeheader()
-            for property_data in properties_data:
-                writer.writerow(property_data)
-            
-            # Get the CSV string and encode to bytes
-            csv_string = output.getvalue()
-            output.close()
-            
-            return csv_string.encode('utf-8')
-            
-        except Exception as e:
-            st.error(f"Error saving to CSV: {e}")
-            return None
+            try:
+                # Define headers dynamically based on transaction type
+                if self.transaction_type == "rent":
+                    headers = [
+                        "District", "Name", "Street Address", "Monthly Rental Price (in HKD)", 
+                        "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
+                    ]
+                else:  # buy
+                    headers = [
+                        "District", "Name", "Street Address", "Sale Price (in HKD Millions)", 
+                        "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
+                    ]
+                
+                # Create a string buffer to write CSV data
+                output = io.StringIO()
+                writer = csv.DictWriter(output, fieldnames=headers)
+                writer.writeheader()
+                for property_data in properties_data:
+                    # Ensure district is in title case (though it should already be)
+                    if 'District' in property_data:
+                        property_data['District'] = property_data['District'].title()
+                    writer.writerow(property_data)
+                
+                # Get the CSV string and encode to bytes
+                csv_string = output.getvalue()
+                output.close()
+                
+                return csv_string.encode('utf-8')
+                
+            except Exception as e:
+                st.error(f"Error saving to CSV: {e}")
+                return None
     
     def close(self):
         """Close the WebDriver."""
@@ -854,30 +840,31 @@ def show_property_search():
             
             # Calculate average price (excluding 'N/A' values)
             prices = []
-            price_field = "Monthly Rental Price (in HKD)" if st.session_state.transaction_type == "rent" else "Sale Price (in HKD)"
+            price_field = "Monthly Rental Price (in HKD)" if st.session_state.transaction_type == "rent" else "Sale Price (in HKD Millions)"
             
             for p in st.session_state.properties_data:
                 price_str = p.get(price_field, 'N/A')
                 if price_str != 'N/A':
                     try:
-                        # Remove commas and convert to int
-                        price = int(price_str.replace(',', ''))
-                        prices.append(price)
+                        if st.session_state.transaction_type == "rent":
+                            # For rent, just convert to int
+                            price = int(price_str.replace(',', ''))
+                            prices.append(price)
+                        else:
+                            # For buy, convert from millions string to float for calculation
+                            price = float(price_str)
+                            prices.append(price)
                     except:
                         pass
             
             with col2:
                 if prices:
-                    avg_price = sum(prices) // len(prices)
-                    # Format price differently for rent vs buy
                     if st.session_state.transaction_type == "rent":
+                        avg_price = sum(prices) // len(prices)
                         st.metric("Average Monthly Rent (HKD)", f"{avg_price:,}")
                     else:
-                        # Convert to millions for sale properties
-                        if avg_price >= 1_000_000:
-                            st.metric("Average Sale Price (HKD)", f"{avg_price/1_000_000:.1f}M")
-                        else:
-                            st.metric("Average Sale Price (HKD)", f"{avg_price:,}")
+                        avg_price = sum(prices) / len(prices)
+                        st.metric("Average Sale Price (HKD Millions)", f"{avg_price:.1f}M")
                 else:
                     st.metric("Average Price", "N/A")
             
