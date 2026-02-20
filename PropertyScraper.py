@@ -401,12 +401,12 @@ class PropertyScraper:
                 
                 try:
                     # 1. DISTRICT - Use the user's search input
-                    property_data['District'] = district.title()
+                    property_data['District'] = district
                     
                     # 2. NAME - Extract property name
                     try:
                         header_cat = item.find_element(By.CSS_SELECTOR, 'div.header.cat')
-                        property_data['Name'] = self.extract_property_name(header_cat, district.title())
+                        property_data['Name'] = self.extract_property_name(header_cat, district)
                     except:
                         property_data['Name'] = 'N/A'
                     
@@ -438,8 +438,31 @@ class PropertyScraper:
                             property_data[self.price_field] = self.extract_price_from_text(price_text)
                         except:
                             property_data[self.price_field] = 'N/A'
-        
-                    # 5, 6, 7. Extract Net Area, Bedrooms, and Bathrooms
+                    
+                    # 5. MONTHLY REPAYMENT - Only for buy properties
+                    if self.transaction_type == "buy":
+                        try:
+                            # Find all meta divs and look for the one containing "monthly repayment"
+                            meta_divs = item.find_elements(By.CSS_SELECTOR, 'div.meta')
+                            repayment_value = 'N/A'
+                            
+                            for meta in meta_divs:
+                                meta_text = meta.text.strip()
+                                if 'monthly repayment:' in meta_text.lower():
+                                    # Extract the number (e.g., "HKD$42,489" from "monthly repayment: HKD$42,489")
+                                    import re
+                                    # Look for HKD$ followed by numbers and commas
+                                    match = re.search(r'HKD\$([\d,]+)', meta_text)
+                                    if match:
+                                        # Remove commas and return the number
+                                        repayment_value = match.group(1).replace(',', '')
+                                    break
+                            
+                            property_data['Monthly Repayment (HKD)'] = repayment_value
+                        except:
+                            property_data['Monthly Repayment (HKD)'] = 'N/A'
+            
+                    # 6, 7, 8. Extract Net Area, Bedrooms, and Bathrooms
                     try:
                         # Find the header with ft²
                         header_divs = item.find_elements(By.CSS_SELECTOR, 'div.header')
@@ -476,7 +499,7 @@ class PropertyScraper:
                         property_data['Number of Bedrooms'] = 'N/A'
                         property_data['Number of Bathrooms'] = 'N/A'
                     
-                    # 8. URL - Extract from img.detail_page href attribute
+                    # 9. URL - Extract from img.detail_page href attribute
                     try:
                         # Find the image element
                         img_element = item.find_element(By.CSS_SELECTOR, 'img.desktop_myimage.detail_page')
@@ -498,44 +521,45 @@ class PropertyScraper:
         return properties_data
     
     def save_to_csv(self, properties_data):
-            """
-            Save extracted property data to a CSV string and return as bytes.
-            """
-            if not properties_data:
-                return None
+        """
+        Save extracted property data to a CSV string and return as bytes.
+        """
+        if not properties_data:
+            return None
+        
+        try:
+            # Define headers dynamically based on transaction type
+            if self.transaction_type == "rent":
+                headers = [
+                    "District", "Name", "Street Address", "Monthly Rental Price (in HKD)", 
+                    "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
+                ]
+            else:  # buy
+                headers = [
+                    "District", "Name", "Street Address", "Sale Price (in HKD Millions)", 
+                    "Monthly Repayment (HKD)", "Net Area (sqft)", "Number of Bedrooms", 
+                    "Number of Bathrooms", "URL"
+                ]
             
-            try:
-                # Define headers dynamically based on transaction type
-                if self.transaction_type == "rent":
-                    headers = [
-                        "District", "Name", "Street Address", "Monthly Rental Price (in HKD)", 
-                        "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
-                    ]
-                else:  # buy
-                    headers = [
-                        "District", "Name", "Street Address", "Sale Price (in HKD Millions)", 
-                        "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
-                    ]
-                
-                # Create a string buffer to write CSV data
-                output = io.StringIO()
-                writer = csv.DictWriter(output, fieldnames=headers)
-                writer.writeheader()
-                for property_data in properties_data:
-                    # Ensure district is in title case (though it should already be)
-                    if 'District' in property_data:
-                        property_data['District'] = property_data['District'].title()
-                    writer.writerow(property_data)
-                
-                # Get the CSV string and encode to bytes
-                csv_string = output.getvalue()
-                output.close()
-                
-                return csv_string.encode('utf-8')
-                
-            except Exception as e:
-                st.error(f"Error saving to CSV: {e}")
-                return None
+            # Create a string buffer to write CSV data
+            output = io.StringIO()
+            writer = csv.DictWriter(output, fieldnames=headers)
+            writer.writeheader()
+            for property_data in properties_data:
+                # Ensure district is in title case (though it should already be)
+                if 'District' in property_data:
+                    property_data['District'] = property_data['District'].title()
+                writer.writerow(property_data)
+            
+            # Get the CSV string and encode to bytes
+            csv_string = output.getvalue()
+            output.close()
+            
+            return csv_string.encode('utf-8')
+            
+        except Exception as e:
+            st.error(f"Error saving to CSV: {e}")
+            return None
     
     def close(self):
         """Close the WebDriver."""
