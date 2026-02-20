@@ -247,7 +247,7 @@ class PropertyScraper:
             return 'N/A'
     
     def extract_property_data(self, district):
-    """Extract data from all property listings on the current page."""
+        """Extract data from all property listings on the current page."""
         properties_data = []
         
         try:
