@@ -309,7 +309,7 @@ class PropertyScraper:
             
             while current_page <= total_pages:
                 # Extract properties from current page
-                page_properties = self.extract_property_data(district)
+                page_properties = self.extract_property_data(district.title())
                 all_properties_data.extend(page_properties)
                 properties_scraped += len(page_properties)
                 
@@ -528,7 +528,7 @@ class PropertyScraper:
                 
                 try:
                     # 1. DISTRICT - Use the user's search input
-                    property_data['District'] = district
+                    property_data['District'] = district.title()
                     
                     # 2. NAME - Extract property name
                     try:
