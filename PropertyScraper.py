@@ -429,245 +429,245 @@ def show_home_page():
     *Happy Property Hunting!*
     """)
 
-    def show_property_search():
-        """Display the property search interface"""
-        
-        # Initialize session state
-        defaults = {
-            'scraper': None, 'properties_data': None, 'search_performed': False,
-            'extract_clicked': False, 'current_district': '', 'property_count': 0,
-            'is_extracting': False, 'transaction_type': 'rent', 'property_type': 'All'
-        }
-        for key, value in defaults.items():
-            if key not in st.session_state:
-                st.session_state[key] = value
-        
-        # Transaction Type Selection
-        st.subheader("Transaction Type")
-        transaction_type = st.radio(
-            "Select transaction type:",
-            ["Rent", "Buy"],
-            horizontal=True,
-            key="transaction_type_radio",
-            on_change=lambda: st.session_state.update(
-                search_performed=False, properties_data=None, extract_clicked=False
-            )
-        ).lower()
-        
-        # Update transaction type if changed
-        if st.session_state.transaction_type != transaction_type:
-            st.session_state.transaction_type = transaction_type
-            st.session_state.update(search_performed=False, properties_data=None, extract_clicked=False)
-        
-        # Property Type Selection (outside the form for dynamic updates)
-        st.subheader("Property Type")
-        property_type = st.selectbox(
-            "Select property type:",
-            ["All", "Apartment", "Carpark", "Office", "Shop"],
-            key="property_type_select"
+def show_property_search():
+    """Display the property search interface"""
+    
+    # Initialize session state
+    defaults = {
+        'scraper': None, 'properties_data': None, 'search_performed': False,
+        'extract_clicked': False, 'current_district': '', 'property_count': 0,
+        'is_extracting': False, 'transaction_type': 'rent', 'property_type': 'All'
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+    
+    # Transaction Type Selection
+    st.subheader("Transaction Type")
+    transaction_type = st.radio(
+        "Select transaction type:",
+        ["Rent", "Buy"],
+        horizontal=True,
+        key="transaction_type_radio",
+        on_change=lambda: st.session_state.update(
+            search_performed=False, properties_data=None, extract_clicked=False
         )
+    ).lower()
+    
+    # Update transaction type if changed
+    if st.session_state.transaction_type != transaction_type:
+        st.session_state.transaction_type = transaction_type
+        st.session_state.update(search_performed=False, properties_data=None, extract_clicked=False)
+    
+    # Property Type Selection (outside the form for dynamic updates)
+    st.subheader("Property Type")
+    property_type = st.selectbox(
+        "Select property type:",
+        ["All", "Apartment", "Carpark", "Office", "Shop"],
+        key="property_type_select"
+    )
+    
+    # Store property type in session state
+    st.session_state.property_type = property_type
+    
+    # Check if Carpark is selected to determine if we should disable other filters
+    is_carpark = (property_type == "Carpark")
+    
+    if is_carpark:
+        st.info("ℹ️ Note: Area and Room filters are not applicable for Carpark properties")
+    
+    # Search form
+    with st.form("search_form"):
+        st.subheader("Search Filters")
+        col1, col2 = st.columns(2)
         
-        # Store property type in session state
-        st.session_state.property_type = property_type
-        
-        # Check if Carpark is selected to determine if we should disable other filters
-        is_carpark = (property_type == "Carpark")
-        
-        if is_carpark:
-            st.info("ℹ️ Note: Area and Room filters are not applicable for Carpark properties")
-        
-        # Search form
-        with st.form("search_form"):
-            st.subheader("Search Filters")
-            col1, col2 = st.columns(2)
+        with col1:
+            # Budget options based on transaction type
+            if st.session_state.transaction_type == "rent":
+                budget_options = ["No preference", "Below 10,000", "10,000 - 20,000",
+                                "20,000 - 40,000", "40,000 - 60,000", "60,000 - 80,000",
+                                "Above 80,000"]
+                budget_label = "Monthly Budget (HKD)"
+            else:
+                budget_options = ["No preference", "Below 10M", "10M - 20M",
+                                "20M - 40M", "40M - 70M", "70M - 100M", "Above 100M"]
+                budget_label = "Price Range (HKD)"
             
-            with col1:
-                # Budget options based on transaction type
-                if st.session_state.transaction_type == "rent":
-                    budget_options = ["No preference", "Below 10,000", "10,000 - 20,000",
-                                    "20,000 - 40,000", "40,000 - 60,000", "60,000 - 80,000",
-                                    "Above 80,000"]
-                    budget_label = "Monthly Budget (HKD)"
-                else:
-                    budget_options = ["No preference", "Below 10M", "10M - 20M",
-                                    "20M - 40M", "40M - 70M", "70M - 100M", "Above 100M"]
-                    budget_label = "Price Range (HKD)"
-                
-                budget = st.selectbox(budget_label, budget_options)
+            budget = st.selectbox(budget_label, budget_options)
+        
+        with col2:
+            # Area filter - disabled if Carpark is selected
+            area_options = ["No preference", "Below 300", "300 - 500", "500 - 1000",
+                           "1000 - 2000", "Above 2000"]
             
-            with col2:
-                # Area filter - disabled if Carpark is selected
-                area_options = ["No preference", "Below 300", "300 - 500", "500 - 1000",
-                               "1000 - 2000", "Above 2000"]
-                
-                if is_carpark:
-                    area = st.selectbox(
-                        "Saleable Area (sqft)",
-                        area_options,
-                        disabled=True,
-                        help="Area filter is not available for Carpark properties"
-                    )
-                else:
-                    area = st.selectbox(
-                        "Saleable Area (sqft)",
-                        area_options
-                    )
-            
-            # Second row for rooms (using full width or another column)
             if is_carpark:
-                rooms = st.selectbox(
-                    "Number of Rooms",
-                    ["No preference", "Studio", "1", "2", "3", "4", "5+"],
+                area = st.selectbox(
+                    "Saleable Area (sqft)",
+                    area_options,
                     disabled=True,
-                    help="Room filter is not available for Carpark properties"
+                    help="Area filter is not available for Carpark properties"
                 )
             else:
-                rooms = st.selectbox(
-                    "Number of Rooms",
-                    ["No preference", "Studio", "1", "2", "3", "4", "5+"]
+                area = st.selectbox(
+                    "Saleable Area (sqft)",
+                    area_options
                 )
-            
-            district = st.text_input("District Name", help="e.g., Central, Causeway Bay, Tsim Sha Tsui")
-            search_button = st.form_submit_button("Search Properties", type="primary", use_container_width=True)
         
-        # Handle search
-        if search_button and district:
-            with st.spinner("Initializing scraper..."):
+        # Second row for rooms (using full width or another column)
+        if is_carpark:
+            rooms = st.selectbox(
+                "Number of Rooms",
+                ["No preference", "Studio", "1", "2", "3", "4", "5+"],
+                disabled=True,
+                help="Room filter is not available for Carpark properties"
+            )
+        else:
+            rooms = st.selectbox(
+                "Number of Rooms",
+                ["No preference", "Studio", "1", "2", "3", "4", "5+"]
+            )
+        
+        district = st.text_input("District Name", help="e.g., Central, Causeway Bay, Tsim Sha Tsui")
+        search_button = st.form_submit_button("Search Properties", type="primary", use_container_width=True)
+    
+    # Handle search
+    if search_button and district:
+        with st.spinner("Initializing scraper..."):
+            if st.session_state.scraper:
+                st.session_state.scraper.close()
+                st.session_state.scraper = None
+            
+            try:
+                scraper = PropertyScraper(st.session_state.transaction_type)
+                
+                # Apply filters
+                scraper.apply_property_type_filter(property_type)
+                scraper.apply_budget_filter(budget)
+                
+                # Only apply area and room filters if property type is not Carpark
+                # Even if the user somehow manages to select values (though they're disabled), we still skip them
+                if not is_carpark:
+                    scraper.apply_area_filter(area)
+                    scraper.apply_room_filter(rooms)
+                
+                property_count = scraper.search_district(district)
+                
+                if property_count > 0:
+                    st.success(f"Found {property_count:,} properties")
+                    st.session_state.update(
+                        scraper=scraper, property_count=property_count,
+                        current_district=district, search_performed=True,
+                        extract_clicked=False, properties_data=None
+                    )
+                else:
+                    st.warning("No properties found in this district")
+                    st.session_state.search_performed = False
+                    scraper.close()
+            except Exception as e:
+                st.error(f"Error during search: {e}")
                 if st.session_state.scraper:
                     st.session_state.scraper.close()
                     st.session_state.scraper = None
-                
-                try:
-                    scraper = PropertyScraper(st.session_state.transaction_type)
-                    
-                    # Apply filters
-                    scraper.apply_property_type_filter(property_type)
-                    scraper.apply_budget_filter(budget)
-                    
-                    # Only apply area and room filters if property type is not Carpark
-                    # Even if the user somehow manages to select values (though they're disabled), we still skip them
-                    if not is_carpark:
-                        scraper.apply_area_filter(area)
-                        scraper.apply_room_filter(rooms)
-                    
-                    property_count = scraper.search_district(district)
-                    
-                    if property_count > 0:
-                        st.success(f"Found {property_count:,} properties")
-                        st.session_state.update(
-                            scraper=scraper, property_count=property_count,
-                            current_district=district, search_performed=True,
-                            extract_clicked=False, properties_data=None
-                        )
-                    else:
-                        st.warning("No properties found in this district")
-                        st.session_state.search_performed = False
-                        scraper.close()
-                except Exception as e:
-                    st.error(f"Error during search: {e}")
-                    if st.session_state.scraper:
-                        st.session_state.scraper.close()
-                        st.session_state.scraper = None
+    
+    # Extract button
+    if (st.session_state.search_performed and not st.session_state.extract_clicked and
+        st.session_state.property_count > 0 and not st.session_state.is_extracting):
         
-        # Extract button
-        if (st.session_state.search_performed and not st.session_state.extract_clicked and
-            st.session_state.property_count > 0 and not st.session_state.is_extracting):
+        if st.button("Extract Property Data", key="extract_button", use_container_width=True):
+            st.session_state.is_extracting = True
+            st.rerun()
+    
+    # Handle extraction
+    if st.session_state.is_extracting and st.session_state.scraper:
+        with st.spinner("Extracting property data... This may take a few minutes..."):
+            st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(
+                st.session_state.current_district, st.session_state.property_count
+            )
+            st.session_state.update(extract_clicked=True, is_extracting=False)
+            st.rerun()
+    
+    # Display results
+    if st.session_state.properties_data:
+        if len(st.session_state.properties_data) > 0:
+            st.header("Search Results")
+            df = pd.DataFrame(st.session_state.properties_data)
             
-            if st.button("Extract Property Data", key="extract_button", use_container_width=True):
-                st.session_state.is_extracting = True
-                st.rerun()
-        
-        # Handle extraction
-        if st.session_state.is_extracting and st.session_state.scraper:
-            with st.spinner("Extracting property data... This may take a few minutes..."):
-                st.session_state.properties_data = st.session_state.scraper.extract_all_property_data(
-                    st.session_state.current_district, st.session_state.property_count
-                )
-                st.session_state.update(extract_clicked=True, is_extracting=False)
-                st.rerun()
-        
-        # Display results
-        if st.session_state.properties_data:
-            if len(st.session_state.properties_data) > 0:
-                st.header("Search Results")
-                df = pd.DataFrame(st.session_state.properties_data)
-                
-                # Define column order based on transaction type
-                if st.session_state.transaction_type == "rent":
-                    column_order = [
-                        "District", "Name", "Street Address", "Monthly Rental Price (in HKD)",
-                        "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
-                    ]
-                else:  # buy
-                    column_order = [
-                        "District", "Name", "Street Address", "Sale Price (in HKD Millions)",
-                        "Monthly Repayment (HKD)", "Net Area (sqft)", "Number of Bedrooms",
-                        "Number of Bathrooms", "URL"
-                    ]
-                
-                existing_columns = [col for col in column_order if col in df.columns]
-                df = df[existing_columns]
-                
-                st.dataframe(df, use_container_width=True)
-                
-                # Download button
-                if st.session_state.scraper:
-                    csv_bytes = st.session_state.scraper.save_to_csv(st.session_state.properties_data)
-                    if csv_bytes:
-                        prefix = "rental" if st.session_state.transaction_type == "rent" else "sale"
-                        filename = f"{prefix}_property_data_{st.session_state.current_district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
-                        
-                        st.download_button(
-                            label="Download CSV",
-                            data=csv_bytes,
-                            file_name=filename,
-                            mime='text/csv',
-                            use_container_width=True
-                        )
-                
-                # Statistics
-                st.header("Statistics")
-                price_field = "Monthly Rental Price (in HKD)" if st.session_state.transaction_type == "rent" else "Sale Price (in HKD Millions)"
-                
-                # Calculate statistics
-                prices = []
-                for p in st.session_state.properties_data:
-                    price_str = p.get(price_field, 'N/A')
-                    if price_str != 'N/A':
-                        try:
-                            if st.session_state.transaction_type == "rent":
-                                prices.append(int(price_str.replace(',', '')))
-                            else:
-                                prices.append(float(price_str))
-                        except:
-                            pass
-                
-                areas = []
-                for p in st.session_state.properties_data:
-                    area_str = p.get('Net Area (sqft)', 'N/A')
-                    if area_str != 'N/A' and area_str.isdigit():
-                        areas.append(int(area_str))
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Total Properties", len(st.session_state.properties_data))
-                with col2:
-                    if prices:
+            # Define column order based on transaction type
+            if st.session_state.transaction_type == "rent":
+                column_order = [
+                    "District", "Name", "Street Address", "Monthly Rental Price (in HKD)",
+                    "Net Area (sqft)", "Number of Bedrooms", "Number of Bathrooms", "URL"
+                ]
+            else:  # buy
+                column_order = [
+                    "District", "Name", "Street Address", "Sale Price (in HKD Millions)",
+                    "Monthly Repayment (HKD)", "Net Area (sqft)", "Number of Bedrooms",
+                    "Number of Bathrooms", "URL"
+                ]
+            
+            existing_columns = [col for col in column_order if col in df.columns]
+            df = df[existing_columns]
+            
+            st.dataframe(df, use_container_width=True)
+            
+            # Download button
+            if st.session_state.scraper:
+                csv_bytes = st.session_state.scraper.save_to_csv(st.session_state.properties_data)
+                if csv_bytes:
+                    prefix = "rental" if st.session_state.transaction_type == "rent" else "sale"
+                    filename = f"{prefix}_property_data_{st.session_state.current_district}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                    
+                    st.download_button(
+                        label="Download CSV",
+                        data=csv_bytes,
+                        file_name=filename,
+                        mime='text/csv',
+                        use_container_width=True
+                    )
+            
+            # Statistics
+            st.header("Statistics")
+            price_field = "Monthly Rental Price (in HKD)" if st.session_state.transaction_type == "rent" else "Sale Price (in HKD Millions)"
+            
+            # Calculate statistics
+            prices = []
+            for p in st.session_state.properties_data:
+                price_str = p.get(price_field, 'N/A')
+                if price_str != 'N/A':
+                    try:
                         if st.session_state.transaction_type == "rent":
-                            st.metric("Average Monthly Rent (HKD)", f"{sum(prices)//len(prices):,}")
+                            prices.append(int(price_str.replace(',', '')))
                         else:
-                            st.metric("Average Sale Price (HKD)", f"{sum(prices)/len(prices):.1f}M")
+                            prices.append(float(price_str))
+                    except:
+                        pass
+            
+            areas = []
+            for p in st.session_state.properties_data:
+                area_str = p.get('Net Area (sqft)', 'N/A')
+                if area_str != 'N/A' and area_str.isdigit():
+                    areas.append(int(area_str))
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Properties", len(st.session_state.properties_data))
+            with col2:
+                if prices:
+                    if st.session_state.transaction_type == "rent":
+                        st.metric("Average Monthly Rent (HKD)", f"{sum(prices)//len(prices):,}")
                     else:
-                        st.metric("Average Price", "N/A")
-                with col3:
-                    if areas:
-                        st.metric("Average Area (sqft)", f"{sum(areas)//len(areas)}")
-                    else:
-                        st.metric("Average Area (sqft)", "N/A")
-            else:
-                st.info("No property data could be extracted.")
-        elif st.session_state.search_performed and st.session_state.extract_clicked:
+                        st.metric("Average Sale Price (HKD)", f"{sum(prices)/len(prices):.1f}M")
+                else:
+                    st.metric("Average Price", "N/A")
+            with col3:
+                if areas:
+                    st.metric("Average Area (sqft)", f"{sum(areas)//len(areas)}")
+                else:
+                    st.metric("Average Area (sqft)", "N/A")
+        else:
             st.info("No property data could be extracted.")
+    elif st.session_state.search_performed and st.session_state.extract_clicked:
+        st.info("No property data could be extracted.")
 
 def main():
     st.set_page_config(page_title="Hong Kong Property Scraper")
