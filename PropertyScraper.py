@@ -605,17 +605,26 @@ def show_property_search():
     if 'transaction_type' not in st.session_state:
         st.session_state.transaction_type = "rent"
     
+    # Transaction Type Selection (outside the form so it updates immediately)
+    st.subheader("Transaction Type")
+    transaction_type = st.radio(
+        "Select transaction type:",
+        ["Rent", "Buy"],
+        horizontal=True,
+        key="transaction_type_radio",
+        on_change=lambda: setattr(st.session_state, 'search_performed', False)  # Reset search when type changes
+    ).lower()
+    
+    # Update session state with transaction type
+    if st.session_state.transaction_type != transaction_type:
+        st.session_state.transaction_type = transaction_type
+        st.session_state.search_performed = False
+        st.session_state.properties_data = None
+        st.session_state.extract_clicked = False
+    
     # Create a form for search filters
     with st.form("search_form"):
         st.subheader("Search Filters")
-        
-        # Transaction Type Selection
-        transaction_type = st.radio(
-            "Transaction Type",
-            ["Rent", "Buy"],
-            horizontal=True,
-            key="transaction_type_radio"
-        ).lower()
         
         col1, col2 = st.columns(2)
         
@@ -627,14 +636,15 @@ def show_property_search():
                 key="property_type"
             )
             
-            # Budget/Price Selection based on transaction type
-            if transaction_type == "rent":
+            # Budget/Price Selection based on transaction type from session state
+            if st.session_state.transaction_type == "rent":
                 budget_options = [
                     "No preference", "Below 10,000", "10,000 - 20,000", 
                     "20,000 - 40,000", "40,000 - 60,000", "60,000 - 80,000", 
                     "Above 80,000"
                 ]
                 budget_label = "Monthly Budget (HKD)"
+                budget_help = "Select your preferred monthly rental budget"
             else:  # buy
                 budget_options = [
                     "No preference", "Below 10M", "10M - 20M", 
@@ -642,11 +652,13 @@ def show_property_search():
                     "Above 100M"
                 ]
                 budget_label = "Price Range (HKD)"
+                budget_help = "Select your preferred purchase price range"
             
             budget = st.selectbox(
                 budget_label,
                 budget_options,
-                key="budget"
+                key="budget",
+                help=budget_help
             )
         
         with col2:
@@ -674,7 +686,8 @@ def show_property_search():
                 st.info("Room filter not applicable for Carpark")
         
         # District Input
-        district = st.text_input("District Name", key="district_input")
+        district = st.text_input("District Name", key="district_input", 
+                                help="Enter a Hong Kong district (e.g., Central, Causeway Bay, Tsim Sha Tsui)")
         
         # Search Button
         search_button = st.form_submit_button("Search Properties", type="primary", use_container_width=True)
@@ -688,11 +701,8 @@ def show_property_search():
                 st.session_state.scraper = None
             
             try:
-                # Update transaction type in session state
-                st.session_state.transaction_type = transaction_type
-                
-                # Initialize scraper with transaction type
-                st.session_state.scraper = PropertyScraper(transaction_type)
+                # Initialize scraper with transaction type from session state
+                st.session_state.scraper = PropertyScraper(st.session_state.transaction_type)
                 
                 # Apply filters
                 st.session_state.scraper.apply_property_type_filter(property_type)
