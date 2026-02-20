@@ -1,3 +1,18 @@
+import streamlit as st
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+import time
+import csv
+import os
+import pandas as pd
+from tempfile import NamedTemporaryFile
+import io
+
 class PropertyScraper:
     def __init__(self, transaction_type="rent"):
         """Initialise WebDriver with transaction type (rent or buy)"""
