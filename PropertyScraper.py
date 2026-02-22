@@ -428,7 +428,7 @@ def show_home_page():
 def show_property_search():
     """Display the property search interface"""
     
-    # Initialize session state
+    # Initialise session state
     defaults = {
         'scraper': None, 'properties_data': None, 'search_performed': False,
         'extract_clicked': False, 'current_district': '', 'property_count': 0,
@@ -520,7 +520,7 @@ def show_property_search():
     
     # Handle search
     if search_button and district:
-        with st.spinner("Initializing scraper..."):
+        with st.spinner("Initialising scraper..."):
             if st.session_state.scraper:
                 st.session_state.scraper.close()
                 st.session_state.scraper = None
