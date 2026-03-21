@@ -210,9 +210,17 @@ class PropertyScraper:
             search_button.click()
             time.sleep(3)
             
-            results_element = self.wait.until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[style*="float: left"]'))
-            )
+            try:
+                results_element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[style*="float: left"]'))) 
+            except Exception:
+                try:
+                    results_element = self.wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="block_search_results"]/div/div[2]/div[1]')))
+                except Exception as e:
+                    print(f"An unexpected error occured: {e}")
+                    return None
+                else:
+                    num_str = results_element.text.split()[7]
+                    return int(num_str)
             results_text = results_element.text.strip()
             
             # Check for appropriate result text based on transaction type
@@ -327,7 +335,11 @@ class PropertyScraper:
                         img_element = item.find_element(By.CSS_SELECTOR, 'img.desktop_myimage.detail_page')
                         property_data['URL'] = img_element.get_attribute('href')
                     except:
-                        pass
+                        try:
+                            img_element = item.find_element(By.CSS_SELECTOR, 'img.desktop_myimage.detail_page_others')
+                            property_data['URL'] = img_element.get_attribute('href')
+                        except:
+                            property_data['URL'] = 'N/A'
                     
                     properties_data.append(property_data)
                 except Exception:
